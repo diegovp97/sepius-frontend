@@ -69,7 +69,7 @@
     <!-- Chat de Twitch: el chat sí es público, no requiere cuenta -->
     <div class="dashboard__chat">
       <iframe
-        [src]="'https://www.twitch.tv/embed/' + channel + '/chat?parent=' + location.hostname"
+        [src]="chatUrl"
         height="100%" width="100%"
         frameborder="0" scrolling="yes">
       </iframe>
