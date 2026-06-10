@@ -16,6 +16,18 @@ interface ChatMsg {
   nickname: string;
   text: string;
   sentAt: string;
+  color?: string;
+}
+
+const COLORS = [
+  '#ff6b6b','#ffa94d','#ffd43b','#a9e34b','#38d9a9',
+  '#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'
+];
+
+function nickColor(nick: string): string {
+  let h = 0;
+  for (let i = 0; i < nick.length; i++) h = (h * 31 + nick.charCodeAt(i)) & 0xffffffff;
+  return COLORS[Math.abs(h) % COLORS.length];
 }
 
 @Component({
@@ -34,6 +46,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   text = '';
   connected = signal(false);
   nickSaved = signal(!!localStorage.getItem('chat-nickname'));
+  editingNick = signal(false);
+  nickColor = (nick: string) => nickColor(nick);
 
   private hub!: signalR.HubConnection;
 
@@ -44,12 +58,12 @@ export class ChatComponent implements OnInit, OnDestroy {
       .build();
 
     this.hub.on('ReceiveMessage', (nickname: string, text: string, sentAt: string) => {
-      this.messages.update(msgs => [...msgs, { nickname, text, sentAt }]);
+      this.messages.update(msgs => [...msgs, { nickname, text, sentAt, color: nickColor(nickname) }]);
       setTimeout(() => this.scrollToBottom(), 50);
     });
 
     this.hub.on('History', (history: ChatMsg[]) => {
-      this.messages.set(history);
+      this.messages.set(history.map(m => ({ ...m, color: nickColor(m.nickname) })));
       setTimeout(() => this.scrollToBottom(), 50);
     });
 
@@ -67,6 +81,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (!n) return;
     localStorage.setItem('chat-nickname', n);
     this.nickSaved.set(true);
+    this.editingNick.set(false);
   }
 
   async send(): Promise<void> {
