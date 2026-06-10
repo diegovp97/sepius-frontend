@@ -1,0 +1,78 @@
+<div class="dashboard">
+  <header class="dashboard__header">
+    <h1 class="dashboard__title">
+      <span class="dashboard__dot"
+        [class.dashboard__dot--playing]="status() === 'playing'"
+        [class.dashboard__dot--loading]="status() === 'loading'"
+        [class.dashboard__dot--error]="status() === 'error'">
+      </span>
+      {{ channel }}
+      @switch (status()) {
+        @case ('playing') { <span class="badge badge--live">LIVE</span> }
+        @case ('loading') { <span class="badge badge--loading">Conectando...</span> }
+        @case ('error')   { <span class="badge badge--error">ERROR</span> }
+      }
+    </h1>
+    <div class="dashboard__actions">
+      @if (status() === 'playing' && !isAtLiveEdge()) {
+        <button class="dashboard__btn dashboard__btn--live" (click)="jumpToLive()">
+          🔴 EN DIRECTO
+        </button>
+      }
+      <button class="dashboard__btn" (click)="startStream()"
+        [disabled]="status() === 'loading'">
+        &#8635; Reconectar
+      </button>
+      <a class="dashboard__twitch-link"
+        [href]="'https://www.twitch.tv/' + channel"
+        target="_blank" rel="noopener noreferrer">
+        Twitch ↗
+      </a>
+    </div>
+  </header>
+
+  <div class="dashboard__content">
+    <div class="dashboard__player">
+
+      <!-- Elemento <video> nativo: sin embed de Twitch, sin cookies, sin ban -->
+      <video #videoEl
+        class="dashboard__video"
+        controls
+        autoplay
+        playsinline
+        muted="false">
+      </video>
+
+      <!-- Overlay de carga -->
+      @if (status() === 'loading') {
+        <div class="dashboard__overlay">
+          <div class="spinner"></div>
+          <p>Iniciando stream anónimo...</p>
+          <p class="overlay-sub">streamlink → ffmpeg → HLS</p>
+        </div>
+      }
+
+      <!-- Overlay de error -->
+      @if (status() === 'error') {
+        <div class="dashboard__overlay dashboard__overlay--error">
+          <p class="overlay-title">⚠️ {{ errorMsg() }}</p>
+          @if (reconnectCountdown() > 0) {
+            <p class="overlay-sub">Reconectando en <strong>{{ reconnectCountdown() }}s</strong></p>
+          }
+          <button class="dashboard__overlay-btn" (click)="reconnectNow()">
+            Reintentar ahora
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- Chat de Twitch: el chat sí es público, no requiere cuenta -->
+    <div class="dashboard__chat">
+      <iframe
+        src="https://www.twitch.tv/embed/elttblue/chat?parent=localhost"
+        height="100%" width="100%"
+        frameborder="0" scrolling="yes">
+      </iframe>
+    </div>
+  </div>
+</div>

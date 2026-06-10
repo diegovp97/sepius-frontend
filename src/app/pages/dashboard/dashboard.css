@@ -1,0 +1,100 @@
+﻿:host {
+  display: block;
+  height: 100%;
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #0e0e10;
+  color: #efeff1;
+  font-family: 'Inter', sans-serif;
+}
+
+.dashboard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #18181b;
+  border-bottom: 1px solid #2c2c31;
+  flex-shrink: 0;
+}
+
+.dashboard__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.dashboard__dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #6b6b6b;
+}
+.dashboard__dot--playing { background: #00c853; animation: pulse 1.8s ease-in-out infinite; }
+.dashboard__dot--loading { background: #ffab00; animation: pulse 0.8s ease-in-out infinite; }
+.dashboard__dot--error   { background: #eb0400; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.badge { font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; }
+.badge--live    { background: #00c853; color: #000; }
+.badge--loading { background: #ffab00; color: #000; }
+.badge--error   { background: #eb0400; color: #fff; }
+
+.dashboard__actions { display: flex; align-items: center; gap: 12px; }
+
+.dashboard__btn {
+  padding: 5px 12px;
+  background: #2c2c31;
+  color: #efeff1;
+  border: 1px solid #3a3a3d;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dashboard__btn:hover    { background: #3a3a3d; }
+.dashboard__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.dashboard__btn--live    { background: #eb0400; border-color: #eb0400; color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+.dashboard__btn--live:hover { background: #c8322f; border-color: #c8322f; }
+
+.dashboard__twitch-link { font-size: 0.8rem; color: #a970ff; text-decoration: none; font-weight: 500; transition: color 0.15s; }
+.dashboard__twitch-link:hover { color: #bf94ff; }
+
+.dashboard__content { display: flex; flex: 1; overflow: hidden; }
+
+.dashboard__player { flex: 1; background: #000; position: relative; }
+
+.dashboard__video { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.dashboard__chat { width: 340px; flex-shrink: 0; border-left: 1px solid #2c2c31; background: #18181b; }
+
+.dashboard__overlay {
+  position: absolute; inset: 0;
+  background: rgba(14, 14, 16, 0.88);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; z-index: 10; backdrop-filter: blur(4px);
+  color: #efeff1; text-align: center; padding: 24px;
+}
+.overlay-title { margin: 0; font-size: 1rem; font-weight: 600; }
+.overlay-sub   { margin: 0; font-size: 0.85rem; color: #adadb8; }
+
+.spinner { width: 36px; height: 36px; border: 3px solid #3a3a3d; border-top-color: #9147ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.dashboard__overlay-btn { margin-top: 8px; padding: 8px 20px; background: #9147ff; color: #fff; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+.dashboard__overlay-btn:hover { background: #772ce8; }
+
+@media (max-width: 768px) {
+  .dashboard__content { flex-direction: column; }
+  .dashboard__chat { width: 100%; height: 300px; border-left: none; border-top: 1px solid #2c2c31; }
+}
