@@ -86,6 +86,8 @@
   color: #efeff1; text-align: center; padding: 24px;
 }
 .overlay-title { margin: 0; font-size: 1rem; font-weight: 600; }
+.overlay-offline-img { width: 180px; height: 180px; object-fit: cover; border-radius: 50%; border: 3px solid #444; margin-bottom: 12px; }
+.overlay-offline-text { font-size: 1.1rem; font-weight: 700; color: #efeff1; margin: 0 0 8px; }
 .overlay-sub   { margin: 0; font-size: 0.85rem; color: #adadb8; }
 
 .spinner { width: 36px; height: 36px; border: 3px solid #3a3a3d; border-top-color: #9147ff; border-radius: 50%; animation: spin 0.8s linear infinite; }

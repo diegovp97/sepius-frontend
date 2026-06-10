@@ -55,9 +55,10 @@
       <!-- Overlay de error -->
       @if (status() === 'error') {
         <div class="dashboard__overlay dashboard__overlay--error">
-          <p class="overlay-title">⚠️ {{ errorMsg() }}</p>
+          <img src="/ttblue.jpg" alt="elttblue" class="overlay-offline-img" />
+          <p class="overlay-offline-text">Estoy trabajando obvio</p>
           @if (reconnectCountdown() > 0) {
-            <p class="overlay-sub">Reconectando en <strong>{{ reconnectCountdown() }}s</strong></p>
+            <p class="overlay-sub">Reintentando en <strong>{{ reconnectCountdown() }}s</strong></p>
           }
           <button class="dashboard__overlay-btn" (click)="reconnectNow()">
             Reintentar ahora
