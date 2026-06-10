@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/sepius-frontend/browser",
+  "framework": "angular",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
