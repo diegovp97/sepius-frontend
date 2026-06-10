@@ -19,6 +19,7 @@ const API_BASE = environment.apiUrl;
 })
 export class DashboardComponent implements AfterViewInit, OnDestroy {
   readonly channel = 'elttblue';
+  readonly location = window.location;
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
   errorMsg = signal('');
