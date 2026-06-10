@@ -66,13 +66,9 @@
       }
     </div>
 
-    <!-- Chat de Twitch: el chat sí es público, no requiere cuenta -->
+    <!-- Chat personalizado con SignalR -->
     <div class="dashboard__chat">
-      <iframe
-        [src]="chatUrl"
-        height="100%" width="100%"
-        frameborder="0" scrolling="yes">
-      </iframe>
+      <app-chat [channel]="channel" />
     </div>
   </div>
 </div>

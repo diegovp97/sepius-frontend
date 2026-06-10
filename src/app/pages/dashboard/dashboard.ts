@@ -5,26 +5,22 @@
   signal,
   ElementRef,
   ViewChild,
-  inject,
 } from '@angular/core';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import Hls from 'hls.js';
 import { environment } from '../../../environments/environment';
+import { ChatComponent } from './chat/chat';
 
 const API_BASE = environment.apiUrl;
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
+  imports: [ChatComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
 export class DashboardComponent implements AfterViewInit, OnDestroy {
   readonly channel = 'elttblue';
-  private sanitizer = inject(DomSanitizer);
-  readonly chatUrl: SafeResourceUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-    `https://www.twitch.tv/embed/${this.channel}/chat?parent=${window.location.hostname}`
-  );
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
   errorMsg = signal('');

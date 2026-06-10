@@ -1,0 +1,38 @@
+@if (!nickSaved()) {
+  <div class="chat__nick-form">
+    <p>Elige un nombre para el chat</p>
+    <input
+      class="chat__input"
+      [(ngModel)]="nickname"
+      placeholder="Tu nickname"
+      maxlength="32"
+      (keydown.enter)="saveNickname()" />
+    <button class="chat__send-btn" (click)="saveNickname()">Entrar</button>
+  </div>
+} @else {
+  <div class="chat__header">
+    <span class="chat__status" [class.chat__status--online]="connected()">
+      {{ connected() ? 'Conectado' : 'Reconectando...' }}
+    </span>
+    <button class="chat__nick-btn" (click)="nickSaved.set(false)">{{ nickname() }}</button>
+  </div>
+
+  <div class="chat__messages" #messagesEl>
+    @for (msg of messages(); track msg.sentAt + msg.nickname) {
+      <div class="chat__msg">
+        <span class="chat__msg-nick">{{ msg.nickname }}</span>
+        <span class="chat__msg-text">{{ msg.text }}</span>
+      </div>
+    }
+  </div>
+
+  <div class="chat__form">
+    <input
+      class="chat__input"
+      [(ngModel)]="text"
+      placeholder="Escribe un mensaje..."
+      maxlength="500"
+      (keydown)="onKeydown($event)" />
+    <button class="chat__send-btn" (click)="send()" [disabled]="!connected()">Enviar</button>
+  </div>
+}
