@@ -7,8 +7,9 @@
   ViewChild,
 } from '@angular/core';
 import Hls from 'hls.js';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = environment.apiUrl;
 
 @Component({
   selector: 'app-dashboard',
