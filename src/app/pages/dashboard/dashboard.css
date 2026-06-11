@@ -96,6 +96,19 @@
 .dashboard__overlay-btn { margin-top: 8px; padding: 8px 20px; background: #9147ff; color: #fff; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
 .dashboard__overlay-btn:hover { background: #772ce8; }
 
+.dashboard__overlay--interact { cursor: pointer; background: rgba(14, 14, 16, 0.75); }
+.dashboard__overlay--interact:hover { background: rgba(14, 14, 16, 0.6); }
+.play-btn-large { font-size: 4rem; line-height: 1; filter: drop-shadow(0 0 12px rgba(145,71,255,0.6)); }
+
+/* Platform tabs */
+.platform-tabs { display: flex; gap: 4px; background: #0e0e10; border-radius: 8px; padding: 3px; }
+.platform-tab { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border: none; border-radius: 6px; background: transparent; color: #adadb8; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.platform-tab:hover { background: #26262c; color: #efeff1; }
+.platform-tab--active { background: #26262c; color: #efeff1; }
+.platform-tab--active:first-child { color: #9147ff; }
+.platform-tab--active:last-child { color: #53fc18; }
+.platform-tab__icon { width: 14px; height: 14px; flex-shrink: 0; }
+
 @media (max-width: 768px) {
   .dashboard__content { flex-direction: column; }
   .dashboard__chat { width: 100%; height: 300px; border-left: none; border-top: 1px solid #2c2c31; }

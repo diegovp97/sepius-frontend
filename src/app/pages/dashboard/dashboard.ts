@@ -21,11 +21,13 @@ const API_BASE = environment.apiUrl;
 })
 export class DashboardComponent implements AfterViewInit, OnDestroy {
   readonly channel = 'elttblue';
+  platform = signal<'twitch' | 'kick'>('twitch');
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
   errorMsg = signal('');
   reconnectCountdown = signal(0);
   isAtLiveEdge = signal(true);
+  needsInteraction = signal(false);
 
   @ViewChild('videoEl') videoRef!: ElementRef<HTMLVideoElement>;
 
@@ -33,11 +35,19 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
+  private stallTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly RECONNECT_DELAY_MS = 10_000;
+  private readonly STALL_TIMEOUT_MS = 4_000;
 
   ngAfterViewInit(): void {
     this.startStream();
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+  }
+
+  selectPlatform(p: 'twitch' | 'kick'): void {
+    if (this.platform() === p) return;
+    this.platform.set(p);
+    this.startStream();
   }
 
   async startStream(): Promise<void> {
@@ -46,7 +56,18 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     this.stopHls();
 
     try {
-      const res = await fetch(`${API_BASE}/api/live/${this.channel}/start`, {
+      // Primero consultar si el stream ya está listo (ej: refresco de página)
+      const statusRes = await fetch(`${API_BASE}/api/live/${this.channel}/status?platform=${this.platform()}`);
+      if (statusRes.ok) {
+        const statusData: { isReady: boolean; hlsUrl: string } = await statusRes.json();
+        if (statusData.isReady) {
+          this.mountHls(API_BASE + statusData.hlsUrl);
+          return;
+        }
+      }
+
+      // Si no está listo, arrancar el transcoding
+      const res = await fetch(`${API_BASE}/api/live/${this.channel}/start?platform=${this.platform()}`, {
         method: 'POST',
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -59,25 +80,34 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
   private pollUntilReady(): void {
     let attempts = 0;
-    const MAX_ATTEMPTS = 30;
+    const MAX_ATTEMPTS = 15;           // 15 × 2s = 30s máximo
+    const MIN_ATTEMPTS_BEFORE_FAIL = 4; // dar 8s para que streamlink arranque
 
     this.pollTimer = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch(`${API_BASE}/api/live/${this.channel}/status`);
-        const data: { isReady: boolean; hlsUrl: string } = await res.json();
+        const res = await fetch(`${API_BASE}/api/live/${this.channel}/status?platform=${this.platform()}`);
+        const data: { isReady: boolean; isTranscoding: boolean; hlsUrl: string } = await res.json();
 
         if (data.isReady) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
           this.mountHls(API_BASE + data.hlsUrl);
+        } else if (attempts >= MIN_ATTEMPTS_BEFORE_FAIL && !data.isTranscoding) {
+          // streamlink murió sin producir segmentos → canal offline o error
+          clearInterval(this.pollTimer!);
+          this.pollTimer = null;
+          this.status.set('error');
+          this.errorMsg.set(`${this.channel} no está en directo ahora mismo.`);
         } else if (attempts >= MAX_ATTEMPTS) {
           clearInterval(this.pollTimer!);
+          this.pollTimer = null;
           this.status.set('error');
           this.errorMsg.set('El canal puede no estar en directo o streamlink no está instalado.');
         }
       } catch {
         clearInterval(this.pollTimer!);
+        this.pollTimer = null;
         this.status.set('error');
         this.errorMsg.set('Error comprobando el estado del stream.');
       }
@@ -93,11 +123,12 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.hls = new Hls({
         // Empezar siempre en el borde live (-1 = último segmento)
         startPosition: -1,
-        maxBufferLength: 10,
-        maxMaxBufferLength: 20,
-        // Mantener latencia baja: ~3 segmentos de 2s = ~6s de retraso
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 6,
+        maxBufferLength: 4,
+        maxMaxBufferLength: 8,
+        backBufferLength: 0,
+        // 2 segmentos de 1s = ~2s de latencia añadida
+        liveSyncDurationCount: 2,
+        liveMaxLatencyDurationCount: 4,
         manifestLoadingTimeOut: 15000,
         manifestLoadingMaxRetry: 4,
         levelLoadingTimeOut: 15000,
@@ -112,9 +143,33 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         if (Number.isFinite(video.duration)) {
           video.currentTime = video.duration;
         }
-        video.play();
         this.status.set('playing');
         this.isAtLiveEdge.set(true);
+        video.play().catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'NotAllowedError') {
+            this.needsInteraction.set(true);
+          }
+        });
+      });
+
+      // Detectar stall: si el vídeo lleva STALL_TIMEOUT_MS sin avanzar, saltar al live edge
+      const resetStallTimer = () => {
+        if (this.stallTimer) clearTimeout(this.stallTimer);
+        this.stallTimer = setTimeout(() => {
+          if (!video.paused && this.hls) {
+            console.warn('[hls] Stall detectado, saltando al live edge');
+            if (Number.isFinite(video.duration)) {
+              video.currentTime = video.duration - 0.5;
+            }
+            this.hls.startLoad(-1);
+          }
+        }, this.STALL_TIMEOUT_MS);
+      };
+
+      video.addEventListener('waiting', resetStallTimer);
+      video.addEventListener('stalled', resetStallTimer);
+      video.addEventListener('playing', () => {
+        if (this.stallTimer) clearTimeout(this.stallTimer);
       });
 
       // Detectar si el usuario se ha alejado del borde live
@@ -125,13 +180,25 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       });
 
       this.hls.on(Hls.Events.ERROR, (_, data) => {
+        // Errores no fatales de fragmento: saltar al live edge en lugar de reintentar el frag roto
+        if (!data.fatal && data.details?.startsWith('frag')) {
+          console.warn('[hls] Frag error (non-fatal), saltando al live edge:', data.details);
+          if (Number.isFinite(video.duration)) {
+            video.currentTime = video.duration - 0.5;
+          }
+          this.hls?.startLoad(-1);
+          return;
+        }
+
         if (!data.fatal) return;
 
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            // Intentar recuperación de red antes de rendirse
-            console.warn('[hls] Network error, attempting startLoad recovery:', data.details);
-            this.hls?.startLoad();
+            console.warn('[hls] Network error fatal, saltando al live edge:', data.details);
+            if (Number.isFinite(video.duration)) {
+              video.currentTime = video.duration - 0.5;
+            }
+            this.hls?.startLoad(-1);
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
             if (!mediaRecoveryAttempted) {
@@ -174,6 +241,16 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }, this.RECONNECT_DELAY_MS);
   }
 
+  clickToPlay(): void {
+    const video = this.videoRef?.nativeElement;
+    if (!video) return;
+    this.needsInteraction.set(false);
+    if (Number.isFinite(video.duration)) {
+      video.currentTime = video.duration - 0.5;
+    }
+    video.play().catch(() => {});
+  }
+
   jumpToLive(): void {
     const video = this.videoRef?.nativeElement;
     if (video && Number.isFinite(video.duration)) {
@@ -203,6 +280,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     this.hls?.destroy();
     this.hls = null;
     if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.stallTimer) { clearTimeout(this.stallTimer); this.stallTimer = null; }
   }
 
   ngOnDestroy(): void {
