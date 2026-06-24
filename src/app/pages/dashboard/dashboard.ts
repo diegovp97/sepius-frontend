@@ -126,7 +126,6 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         maxBufferLength: 4,
         maxMaxBufferLength: 8,
         backBufferLength: 0,
-        // 2 segmentos de 1s = ~2s de latencia añadida
         liveSyncDurationCount: 2,
         liveMaxLatencyDurationCount: 4,
         manifestLoadingTimeOut: 15000,
@@ -134,9 +133,13 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         levelLoadingTimeOut: 15000,
         fragLoadingTimeOut: 30000,
         fragLoadingMaxRetry: 4,
-        // Cache-busting: el navegador puede servir m3u8/segmentos viejos de la disk
-        // cache (de sesiones anteriores con distinto codec/resolución), provocando
-        // bufferAppendError. Forzamos no-store en TODAS las peticiones de hls.js.
+        // Desactivar Web Worker: en algunos browsers el worker (blob URL) falla al
+        // cargar, lo que provoca que el SourceBuffer sea eliminado del MediaSource
+        // justo antes del primer appendBuffer → bufferAppendError fatal.
+        // Sin worker, hls.js transmuxea TS→fMP4 en el hilo principal, más estable.
+        enableWorker: false,
+        // Cache-busting: forzar no-store en todas las peticiones de hls.js para
+        // evitar que el browser sirva segmentos viejos de sesiones anteriores.
         xhrSetup: (xhr: XMLHttpRequest, url: string) => {
           xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         },
