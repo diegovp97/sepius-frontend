@@ -21,7 +21,7 @@ const API_BASE = environment.apiUrl;
 })
 export class DashboardComponent implements AfterViewInit, OnDestroy {
   readonly channel = 'elttblue';
-  platform = signal<'twitch' | 'kick'>('twitch');
+  platform = signal<'twitch' | 'kick'>('kick');
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
   errorMsg = signal('');
@@ -134,6 +134,12 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         levelLoadingTimeOut: 15000,
         fragLoadingTimeOut: 30000,
         fragLoadingMaxRetry: 4,
+        // Cache-busting: el navegador puede servir m3u8/segmentos viejos de la disk
+        // cache (de sesiones anteriores con distinto codec/resolución), provocando
+        // bufferAppendError. Forzamos no-store en TODAS las peticiones de hls.js.
+        xhrSetup: (xhr: XMLHttpRequest, url: string) => {
+          xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        },
       });
       this.hls.loadSource(hlsUrl);
       this.hls.attachMedia(video);
@@ -180,6 +186,12 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       });
 
       this.hls.on(Hls.Events.ERROR, (_, data) => {
+        // Log completo para diagnóstico
+        console.warn('[hls] ERROR event:', {
+          fatal: data.fatal, type: data.type, details: data.details,
+          reason: (data as any).reason, err: (data as any).err?.message,
+          mimeType: (data as any).mimeType,
+        });
         // Errores no fatales de fragmento: saltar al live edge en lugar de reintentar el frag roto
         if (!data.fatal && data.details?.startsWith('frag')) {
           console.warn('[hls] Frag error (non-fatal), saltando al live edge:', data.details);
@@ -281,6 +293,13 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     this.hls = null;
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.stallTimer) { clearTimeout(this.stallTimer); this.stallTimer = null; }
+    // Resetear el elemento <video> para eliminar cualquier MediaSource residual
+    const video = this.videoRef?.nativeElement;
+    if (video) {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    }
   }
 
   ngOnDestroy(): void {
