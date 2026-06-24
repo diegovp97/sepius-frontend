@@ -21,7 +21,7 @@ const API_BASE = environment.apiUrl;
 })
 export class DashboardComponent implements AfterViewInit, OnDestroy {
   readonly channel = 'elttblue';
-  platform = signal<'twitch' | 'kick'>('kick');
+  platform = signal<'twitch' | 'kick' | null>(null);
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
   errorMsg = signal('');
@@ -44,70 +44,76 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
-  selectPlatform(p: 'twitch' | 'kick'): void {
-    if (this.platform() === p) return;
-    this.platform.set(p);
-    this.startStream();
-  }
-
   async startStream(): Promise<void> {
+    console.log(`[sepius] startStream() → consultando /active para '${this.channel}'`);
     this.status.set('loading');
     this.errorMsg.set('');
     this.stopHls();
 
     try {
-      // Primero consultar si el stream ya está listo (ej: refresco de página)
-      const statusRes = await fetch(`${API_BASE}/api/live/${this.channel}/status?platform=${this.platform()}`);
-      if (statusRes.ok) {
-        const statusData: { isReady: boolean; hlsUrl: string } = await statusRes.json();
-        if (statusData.isReady) {
-          this.mountHls(API_BASE + statusData.hlsUrl);
-          return;
-        }
+      const res = await fetch(`${API_BASE}/api/live/${this.channel}/active`);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+
+      const data: { isLive: boolean; platform: string | null; hlsUrl: string | null; isReady: boolean } = await res.json();
+      console.log('[sepius] /active →', data);
+
+      if (!data.isLive || !data.hlsUrl) {
+        console.warn(`[sepius] Canal '${this.channel}' offline o sin HLS.`);
+        this.status.set('error');
+        this.errorMsg.set(`${this.channel} no está en directo ahora mismo.`);
+        return;
       }
 
-      // Si no está listo, arrancar el transcoding
-      const res = await fetch(`${API_BASE}/api/live/${this.channel}/start?platform=${this.platform()}`, {
-        method: 'POST',
-      });
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-      this.pollUntilReady();
-    } catch {
+      this.platform.set(data.platform as 'twitch' | 'kick');
+
+      if (data.isReady) {
+        console.log(`[sepius] HLS listo en ${data.platform}. Montando: ${data.hlsUrl}`);
+        this.mountHls(API_BASE + data.hlsUrl);
+      } else {
+        console.log(`[sepius] HLS aún no listo (platform=${data.platform}). Esperando...`);
+        this.pollUntilReady(data.hlsUrl);
+      }
+    } catch (err) {
+      console.error('[sepius] Error en startStream():', err);
       this.status.set('error');
-      this.errorMsg.set('No se pudo contactar con el backend. ¿Está corriendo dotnet run?');
+      this.errorMsg.set('No se pudo contactar con el backend. ¿Está corriendo?');
     }
   }
 
-  private pollUntilReady(): void {
+  private pollUntilReady(hlsUrl: string): void {
     let attempts = 0;
-    const MAX_ATTEMPTS = 15;           // 15 × 2s = 30s máximo
-    const MIN_ATTEMPTS_BEFORE_FAIL = 4; // dar 8s para que streamlink arranque
+    const MAX_ATTEMPTS = 15; // 15 × 2s = 30s máximo
 
     this.pollTimer = setInterval(async () => {
       attempts++;
+      console.log(`[sepius] poll #${attempts} → /active`);
       try {
-        const res = await fetch(`${API_BASE}/api/live/${this.channel}/status?platform=${this.platform()}`);
-        const data: { isReady: boolean; isTranscoding: boolean; hlsUrl: string } = await res.json();
+        const res = await fetch(`${API_BASE}/api/live/${this.channel}/active`);
+        const data: { isLive: boolean; hlsUrl: string | null; isReady: boolean } = await res.json();
+        console.log(`[sepius] poll #${attempts} ←`, data);
 
-        if (data.isReady) {
+        if (data.isReady && data.hlsUrl) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
+          console.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
           this.mountHls(API_BASE + data.hlsUrl);
-        } else if (attempts >= MIN_ATTEMPTS_BEFORE_FAIL && !data.isTranscoding) {
-          // streamlink murió sin producir segmentos → canal offline o error
+        } else if (!data.isLive) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
+          console.warn('[sepius] Canal ya no en directo durante el poll.');
           this.status.set('error');
           this.errorMsg.set(`${this.channel} no está en directo ahora mismo.`);
         } else if (attempts >= MAX_ATTEMPTS) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
+          console.error('[sepius] Timeout esperando HLS listo.');
           this.status.set('error');
-          this.errorMsg.set('El canal puede no estar en directo o streamlink no está instalado.');
+          this.errorMsg.set('El stream tardó demasiado en arrancar.');
         }
-      } catch {
+      } catch (err) {
         clearInterval(this.pollTimer!);
         this.pollTimer = null;
+        console.error('[sepius] Error en poll:', err);
         this.status.set('error');
         this.errorMsg.set('Error comprobando el estado del stream.');
       }
@@ -148,6 +154,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.hls.attachMedia(video);
 
       this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('[sepius] MANIFEST_PARSED → reproduciendo desde el live edge.');
         // Saltar al borde live antes de reproducir
         if (Number.isFinite(video.duration)) {
           video.currentTime = video.duration;
@@ -156,6 +163,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         this.isAtLiveEdge.set(true);
         video.play().catch((err: unknown) => {
           if (err instanceof DOMException && err.name === 'NotAllowedError') {
+            console.warn('[sepius] Autoplay bloqueado. Esperando interacción del usuario.');
             this.needsInteraction.set(true);
           }
         });
@@ -309,7 +317,6 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     this.stopHls();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.countdownInterval) clearInterval(this.countdownInterval);
-    fetch(`${API_BASE}/api/live/${this.channel}/stop`, { method: 'POST' }).catch(() => {});
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
 }
