@@ -43,6 +43,14 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
   constructor(public readonly cast: ChromecastService) {}
 
+  private proxyR2Url(url: string): string {
+    const R2_HOST = 'pub-3d8195bbb37d43029a0883c971c4b47d.r2.dev';
+    if (window.location.hostname === 'localhost' && url.includes(R2_HOST)) {
+      return url.replace(`https://${R2_HOST}`, '/hls');
+    }
+    return url;
+  }
+
   ngAfterViewInit(): void {
     this.startStream();
     document.addEventListener('visibilitychange', this.onVisibilityChange);
@@ -72,7 +80,8 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.platform.set(data.platform as 'twitch' | 'kick');
 
       if (data.isReady) {
-        const fullUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
+        const rawUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
+        const fullUrl = this.proxyR2Url(rawUrl);
         this.currentHlsUrl = fullUrl;
         console.log(`[sepius] HLS listo en ${data.platform}. Montando: ${fullUrl}`);
         this.mountHls(fullUrl);
@@ -102,7 +111,8 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         if (data.isReady && data.hlsUrl) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
-          const fullUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
+          const rawUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
+          const fullUrl = this.proxyR2Url(rawUrl);
           this.currentHlsUrl = fullUrl;
           console.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
           this.mountHls(fullUrl);
