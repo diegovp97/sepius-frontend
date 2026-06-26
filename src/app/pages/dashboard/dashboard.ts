@@ -61,6 +61,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         console.warn(`[sepius] Canal '${this.channel}' offline o sin HLS.`);
         this.status.set('error');
         this.errorMsg.set(`${this.channel} no está en directo ahora mismo.`);
+        this.scheduleReconnect();
         return;
       }
 
@@ -292,7 +293,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private onVisibilityChange = (): void => {
     if (document.visibilityState !== 'visible') return;
     const video = this.videoRef?.nativeElement;
-    if (this.status() === 'error') {
+    if (this.status() === 'error' && !this.reconnectTimer) {
       this.reconnectNow();
     } else if (video?.paused) {
       video.play().catch(() => {});
