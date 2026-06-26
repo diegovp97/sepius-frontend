@@ -130,11 +130,11 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.hls = new Hls({
         // Empezar siempre en el borde live (-1 = último segmento)
         startPosition: -1,
-        maxBufferLength: 4,
-        maxMaxBufferLength: 8,
+        maxBufferLength: 16,
+        maxMaxBufferLength: 40,
         backBufferLength: 0,
-        liveSyncDurationCount: 2,
-        liveMaxLatencyDurationCount: 4,
+        liveSyncDurationCount: 4,
+        liveMaxLatencyDurationCount: 8,
         manifestLoadingTimeOut: 15000,
         manifestLoadingMaxRetry: 4,
         levelLoadingTimeOut: 15000,
