@@ -69,7 +69,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
       if (data.isReady) {
         console.log(`[sepius] HLS listo en ${data.platform}. Montando: ${data.hlsUrl}`);
-        this.mountHls(API_BASE + data.hlsUrl);
+        this.mountHls(data.hlsUrl);
       } else {
         console.log(`[sepius] HLS aún no listo (platform=${data.platform}). Esperando...`);
         this.pollUntilReady(data.hlsUrl);
@@ -97,7 +97,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
           console.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
-          this.mountHls(API_BASE + data.hlsUrl);
+          this.mountHls(data.hlsUrl);
         } else if (!data.isLive) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
