@@ -67,6 +67,11 @@
 .dashboard__btn--live    { background: #eb0400; border-color: #eb0400; color: #fff; animation: pulse 1.2s ease-in-out infinite; }
 .dashboard__btn--live:hover { background: #c8322f; border-color: #c8322f; }
 
+.dashboard__btn--cast { display: flex; align-items: center; gap: 6px; background: #1a1a2e; border-color: #3a3a5d; }
+.dashboard__btn--cast:hover { background: #25254a; }
+.dashboard__btn--casting { background: #1b5e20; border-color: #2e7d32; color: #fff; }
+.dashboard__btn--casting:hover { background: #2e7d32; }
+
 .dashboard__twitch-link { font-size: 0.8rem; color: #a970ff; text-decoration: none; font-weight: 500; transition: color 0.15s; }
 .dashboard__twitch-link:hover { color: #bf94ff; }
 

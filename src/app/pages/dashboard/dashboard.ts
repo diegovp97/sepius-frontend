@@ -9,6 +9,7 @@
 import Hls from 'hls.js';
 import { environment } from '../../../environments/environment';
 import { ChatComponent } from './chat/chat';
+import { ChromecastService } from '../../services/chromecast.service';
 
 const API_BASE = environment.apiUrl;
 
@@ -22,6 +23,7 @@ const API_BASE = environment.apiUrl;
 export class DashboardComponent implements AfterViewInit, OnDestroy {
   readonly channel = 'elttblue';
   platform = signal<'twitch' | 'kick' | null>(null);
+  private currentHlsUrl = '';
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
   errorMsg = signal('');
@@ -38,6 +40,8 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private stallTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly RECONNECT_DELAY_MS = 10_000;
   private readonly STALL_TIMEOUT_MS = 4_000;
+
+  constructor(public readonly cast: ChromecastService) {}
 
   ngAfterViewInit(): void {
     this.startStream();
@@ -69,6 +73,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
       if (data.isReady) {
         const fullUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
+        this.currentHlsUrl = fullUrl;
         console.log(`[sepius] HLS listo en ${data.platform}. Montando: ${fullUrl}`);
         this.mountHls(fullUrl);
       } else {
@@ -98,6 +103,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
           const fullUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
+          this.currentHlsUrl = fullUrl;
           console.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
           this.mountHls(fullUrl);
         } else if (!data.isLive) {
@@ -290,6 +296,12 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.countdownInterval) clearInterval(this.countdownInterval);
     this.startStream();
+  }
+
+  castStream(): void {
+    if (this.currentHlsUrl) {
+      this.cast.castHls(this.currentHlsUrl, `elttblue - ${this.platform() ?? 'live'}`);
+    }
   }
 
   private onVisibilityChange = (): void => {
