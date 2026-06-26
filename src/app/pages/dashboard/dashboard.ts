@@ -68,8 +68,9 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.platform.set(data.platform as 'twitch' | 'kick');
 
       if (data.isReady) {
-        console.log(`[sepius] HLS listo en ${data.platform}. Montando: ${data.hlsUrl}`);
-        this.mountHls(data.hlsUrl);
+        const fullUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
+        console.log(`[sepius] HLS listo en ${data.platform}. Montando: ${fullUrl}`);
+        this.mountHls(fullUrl);
       } else {
         console.log(`[sepius] HLS aún no listo (platform=${data.platform}). Esperando...`);
         this.pollUntilReady(data.hlsUrl);
@@ -96,8 +97,9 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         if (data.isReady && data.hlsUrl) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
+          const fullUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
           console.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
-          this.mountHls(data.hlsUrl);
+          this.mountHls(fullUrl);
         } else if (!data.isLive) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
