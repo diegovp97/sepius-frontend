@@ -1,0 +1,88 @@
+<div class="yt">
+  <header class="yt__header">
+    <div class="yt__header-left">
+      <a routerLink="/" class="yt__back">&#8592;</a>
+      <h1 class="yt__title">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="#ff0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+        YouTube Upload
+      </h1>
+    </div>
+    <div class="yt__actions">
+      <span class="yt__count">{{ selected().size }} seleccionados</span>
+      <button class="yt__btn yt__btn--outline" (click)="selectAll()">Todos</button>
+      <button class="yt__btn yt__btn--outline" (click)="deselectAll()">Ninguno</button>
+      <button class="yt__btn yt__btn--primary" (click)="uploadSelected()" [disabled]="selected().size === 0 || uploading() !== null">
+        @if (uploading()) {
+          <span class="yt__spinner-sm"></span> Subiendo...
+        } @else {
+          Subir a YouTube
+        }
+      </button>
+    </div>
+  </header>
+
+  <div class="yt__content">
+    @if (loading()) {
+      <div class="yt__center">
+        <div class="yt__spinner"></div>
+        <p>Cargando grabaciones...</p>
+      </div>
+    } @else if (error()) {
+      <div class="yt__center yt__center--error">
+        <p>{{ error() }}</p>
+        <button class="yt__btn yt__btn--outline" (click)="loadRecordings()">Reintentar</button>
+      </div>
+    } @else if (recordings().length === 0) {
+      <div class="yt__center">
+        <p>No hay grabaciones disponibles.</p>
+      </div>
+    } @else {
+      <div class="yt__table-wrap">
+        <table class="yt__table">
+          <thead>
+            <tr>
+              <th class="yt__th-check"></th>
+              <th class="yt__th-name">Archivo</th>
+              <th class="yt__th-size">Tamaño</th>
+              <th class="yt__th-date">Fecha</th>
+              <th class="yt__th-status">Estado</th>
+              <th class="yt__th-action"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (rec of recordings(); track rec.fileName) {
+              <tr class="yt__row" [class.yt__row--selected]="isSelected(rec.fileName)" [class.yt__row--done]="uploadResults().has(rec.fileName)">
+                <td class="yt__td-check">
+                  <input type="checkbox" [checked]="isSelected(rec.fileName)" (change)="toggleSelect(rec.fileName)" />
+                </td>
+                <td class="yt__td-name" (click)="toggleSelect(rec.fileName)">
+                  <span class="yt__filename">{{ rec.fileName }}</span>
+                </td>
+                <td class="yt__td-size">{{ formatSize(rec.sizeMB) }}</td>
+                <td class="yt__td-date">{{ formatDate(rec.lastModified) }}</td>
+                <td class="yt__td-status">
+                  @if (uploadResults().has(rec.fileName)) {
+                    <span class="yt__badge yt__badge--ok">Subido</span>
+                  } @else if (uploadErrors().has(rec.fileName)) {
+                    <span class="yt__badge yt__badge--error" [title]="uploadErrors().get(rec.fileName)">Error</span>
+                  } @else if (uploading() === rec.fileName) {
+                    <span class="yt__badge yt__badge--uploading">Subiendo...</span>
+                  } @else {
+                    <span class="yt__badge">Pendiente</span>
+                  }
+                </td>
+                <td class="yt__td-action">
+                  @if (uploadResults().has(rec.fileName)) {
+                    <a [href]="uploadResults().get(rec.fileName)!.url" target="_blank" rel="noopener" class="yt__link">Ver &#8599;</a>
+                  } @else if (uploading() !== rec.fileName) {
+                    <button class="yt__btn-sm" (click)="uploadSingle(rec)">Subir</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

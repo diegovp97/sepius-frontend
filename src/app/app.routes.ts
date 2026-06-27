@@ -6,4 +6,9 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/dashboard/dashboard').then(m => m.DashboardComponent),
   },
+  {
+    path: 'youtube',
+    loadComponent: () =>
+      import('./pages/youtube/youtube').then(m => m.YoutubeComponent),
+  },
 ];
