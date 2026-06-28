@@ -38,8 +38,10 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
   private stallTimer: ReturnType<typeof setTimeout> | null = null;
+  private liveCheckTimer: ReturnType<typeof setInterval> | null = null;
   private readonly RECONNECT_DELAY_MS = 10_000;
   private readonly STALL_TIMEOUT_MS = 4_000;
+  private readonly LIVE_CHECK_INTERVAL_MS = 15_000;
 
   constructor(public readonly cast: ChromecastService) {}
 
@@ -172,6 +174,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         }
         this.status.set('playing');
         this.isAtLiveEdge.set(true);
+        this.startLiveCheck();
         video.play().catch((err: unknown) => {
           if (err instanceof DOMException && err.name === 'NotAllowedError') {
             console.warn('[sepius] Autoplay bloqueado. Esperando interacción del usuario.');
@@ -264,6 +267,38 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private startLiveCheck(): void {
+    this.stopLiveCheck();
+    this.liveCheckTimer = setInterval(async () => {
+      if (this.status() !== 'playing') {
+        this.stopLiveCheck();
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/live/${this.channel}/active`);
+        if (!res.ok) return;
+        const data: { isLive: boolean } = await res.json();
+        if (!data.isLive) {
+          console.warn('[sepius] Stream ya no en vivo (detectado por polling).');
+          this.stopLiveCheck();
+          this.stopHls();
+          this.status.set('error');
+          this.errorMsg.set(`${this.channel} ha terminado el directo.`);
+          this.scheduleReconnect();
+        }
+      } catch {
+        // Ignorar errores de red en el check
+      }
+    }, this.LIVE_CHECK_INTERVAL_MS);
+  }
+
+  private stopLiveCheck(): void {
+    if (this.liveCheckTimer) {
+      clearInterval(this.liveCheckTimer);
+      this.liveCheckTimer = null;
+    }
+  }
+
   private scheduleReconnect(): void {
     this.reconnectCountdown.set(this.RECONNECT_DELAY_MS / 1000);
     this.countdownInterval = setInterval(() =>
@@ -317,6 +352,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   };
 
   private stopHls(): void {
+    this.stopLiveCheck();
     this.hls?.destroy();
     this.hls = null;
     if (this.pollTimer) clearInterval(this.pollTimer);
