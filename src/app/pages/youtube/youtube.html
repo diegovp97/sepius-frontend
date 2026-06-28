@@ -51,7 +51,7 @@
           </thead>
           <tbody>
             @for (rec of recordings(); track rec.fileName) {
-              <tr class="yt__row" [class.yt__row--selected]="isSelected(rec.fileName)" [class.yt__row--done]="uploadResults().has(rec.fileName)">
+              <tr class="yt__row" [class.yt__row--selected]="isSelected(rec.fileName)" [class.yt__row--done]="getJobStatus(rec.fileName) === 'Completed'">
                 <td class="yt__td-check">
                   <input type="checkbox" [checked]="isSelected(rec.fileName)" (change)="toggleSelect(rec.fileName)" />
                 </td>
@@ -61,20 +61,26 @@
                 <td class="yt__td-size">{{ formatSize(rec.sizeMB) }}</td>
                 <td class="yt__td-date">{{ formatDate(rec.lastModified) }}</td>
                 <td class="yt__td-status">
-                  @if (uploadResults().has(rec.fileName)) {
+                  @if (getJobStatus(rec.fileName) === 'Completed') {
                     <span class="yt__badge yt__badge--ok">Subido</span>
                   } @else if (uploadErrors().has(rec.fileName)) {
                     <span class="yt__badge yt__badge--error" [title]="uploadErrors().get(rec.fileName)">Error</span>
+                  } @else if (getJobStatus(rec.fileName) === 'Failed') {
+                    <span class="yt__badge yt__badge--error" [title]="uploadErrors().get(rec.fileName)">Error</span>
+                  } @else if (getJobStatus(rec.fileName) === 'Uploading') {
+                    <span class="yt__badge yt__badge--uploading">Subiendo a YT...</span>
+                  } @else if (getJobStatus(rec.fileName) === 'Queued') {
+                    <span class="yt__badge yt__badge--queued">En cola</span>
                   } @else if (uploading() === rec.fileName) {
-                    <span class="yt__badge yt__badge--uploading">Subiendo...</span>
+                    <span class="yt__badge yt__badge--uploading">Encolando...</span>
                   } @else {
                     <span class="yt__badge">Pendiente</span>
                   }
                 </td>
                 <td class="yt__td-action">
-                  @if (uploadResults().has(rec.fileName)) {
-                    <a [href]="uploadResults().get(rec.fileName)!.url" target="_blank" rel="noopener" class="yt__link">Ver &#8599;</a>
-                  } @else if (uploading() !== rec.fileName) {
+                  @if (getJobUrl(rec.fileName)) {
+                    <a [href]="getJobUrl(rec.fileName)" target="_blank" rel="noopener" class="yt__link">Ver &#8599;</a>
+                  } @else if (getJobStatus(rec.fileName) !== 'Queued' && getJobStatus(rec.fileName) !== 'Uploading' && uploading() !== rec.fileName) {
                     <button class="yt__btn-sm" (click)="uploadSingle(rec)">Subir</button>
                   }
                 </td>

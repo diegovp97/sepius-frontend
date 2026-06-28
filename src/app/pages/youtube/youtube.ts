@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
@@ -11,9 +11,13 @@ interface Recording {
   lastModified: string;
 }
 
-interface UploadResult {
-  videoId: string;
-  url: string;
+interface UploadJob {
+  jobId: string;
+  status: 'Queued' | 'Uploading' | 'Completed' | 'Failed';
+  videoId?: string;
+  url?: string;
+  error?: string;
+  fileName?: string;
 }
 
 @Component({
@@ -23,18 +27,25 @@ interface UploadResult {
   templateUrl: './youtube.html',
   styleUrl: './youtube.css',
 })
-export class YoutubeComponent implements OnInit {
+export class YoutubeComponent implements OnInit, OnDestroy {
   recordings = signal<Recording[]>([]);
   loading = signal(true);
   error = signal('');
   uploading = signal<string | null>(null);
-  uploadResults = signal<Map<string, UploadResult>>(new Map());
+  uploadJobs = signal<Map<string, UploadJob>>(new Map());
   uploadErrors = signal<Map<string, string>>(new Map());
   channel = signal('elttblue');
   selected = signal<Set<string>>(new Set());
 
+  private pollIntervals = new Map<string, ReturnType<typeof setInterval>>();
+
   ngOnInit(): void {
     this.loadRecordings();
+  }
+
+  ngOnDestroy(): void {
+    this.pollIntervals.forEach(clearInterval);
+    this.pollIntervals.clear();
   }
 
   async loadRecordings(): Promise<void> {
@@ -82,12 +93,20 @@ export class YoutubeComponent implements OnInit {
     try {
       const url = `${API_BASE}/api/recordings/upload?filePath=${encodeURIComponent(recording.fullPath)}&channelName=${this.channel()}`;
       const res = await fetch(url, { method: 'POST' });
-      if (!res.ok) {
+
+      if (res.status === 202) {
+        const data: UploadJob = await res.json();
+        data.fileName = recording.fileName;
+        this.uploadJobs.update(m => { const n = new Map(m); n.set(recording.fileName, data); return n; });
+        this.pollJobStatus(recording.fileName, data.jobId);
+      } else if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `API error ${res.status}`);
+      } else {
+        const data = await res.json();
+        const job: UploadJob = { jobId: '', status: 'Completed', videoId: data.videoId, url: data.url, fileName: recording.fileName };
+        this.uploadJobs.update(m => { const n = new Map(m); n.set(recording.fileName, job); return n; });
       }
-      const data: UploadResult = await res.json();
-      this.uploadResults.update(m => { const n = new Map(m); n.set(recording.fileName, data); return n; });
     } catch (err: any) {
       console.error('Upload error:', err);
       this.uploadErrors.update(m => { const n = new Map(m); n.set(recording.fileName, err.message || 'Error desconocido'); return n; });
@@ -96,12 +115,62 @@ export class YoutubeComponent implements OnInit {
     }
   }
 
+  private pollJobStatus(fileName: string, jobId: string): void {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/recordings/upload/status/${jobId}`);
+        if (!res.ok) return;
+        const job: UploadJob = await res.json();
+        job.fileName = fileName;
+
+        this.uploadJobs.update(m => { const n = new Map(m); n.set(fileName, job); return n; });
+
+        if (job.status === 'Completed' || job.status === 'Failed') {
+          clearInterval(interval);
+          this.pollIntervals.delete(fileName);
+
+          if (job.status === 'Completed' && job.videoId) {
+            this.uploadJobs.update(m => {
+              const n = new Map(m);
+              const existing = n.get(fileName);
+              if (existing) {
+                existing.url = `https://youtu.be/${job.videoId}`;
+                n.set(fileName, { ...existing });
+              }
+              return n;
+            });
+          }
+
+          if (job.status === 'Failed' && job.error) {
+            this.uploadErrors.update(m => { const n = new Map(m); n.set(fileName, job.error!); return n; });
+          }
+        }
+      } catch {
+        // retry on next tick
+      }
+    }, 3000);
+
+    this.pollIntervals.set(fileName, interval);
+  }
+
   async uploadSelected(): Promise<void> {
     const toUpload = this.recordings().filter(r => this.selected().has(r.fileName));
     for (const rec of toUpload) {
-      if (this.uploadResults().has(rec.fileName)) continue;
+      if (this.uploadJobs().has(rec.fileName)) continue;
       await this.uploadSingle(rec);
     }
+  }
+
+  getJobStatus(fileName: string): string {
+    return this.uploadJobs().get(fileName)?.status || '';
+  }
+
+  getJobVideoId(fileName: string): string | undefined {
+    return this.uploadJobs().get(fileName)?.videoId;
+  }
+
+  getJobUrl(fileName: string): string | undefined {
+    return this.uploadJobs().get(fileName)?.url;
   }
 
   formatDate(iso: string): string {
