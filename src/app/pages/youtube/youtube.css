@@ -35,6 +35,27 @@
 }
 .yt__back:hover { color: #efeff1; }
 
+.yt__tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.yt__tab {
+  padding: 4px 12px;
+  background: #2c2c31;
+  color: #adadb8;
+  border: 1px solid #3a3a3d;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.yt__tab:hover { background: #3a3a3d; color: #efeff1; }
+.yt__tab--active { background: #9146ff; color: #fff; border-color: #9146ff; }
+.yt__tab--active:hover { background: #7b3be0; }
+
 .yt__title {
   display: flex;
   align-items: center;

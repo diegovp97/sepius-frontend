@@ -35,6 +35,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   uploadJobs = signal<Map<string, UploadJob>>(new Map());
   uploadErrors = signal<Map<string, string>>(new Map());
   channel = signal('elttblue');
+  platform = signal<'twitch' | 'kick'>('twitch');
   selected = signal<Set<string>>(new Set());
   previewRec = signal<Recording | null>(null);
   expandedRow = signal<string | null>(null);
@@ -54,7 +55,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set('');
     try {
-      const res = await fetch(`${API_BASE}/api/recordings/list?channelName=${this.channel()}`);
+      const res = await fetch(`${API_BASE}/api/recordings/list?channelName=${this.channel()}&platform=${this.platform()}`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data: Recording[] = await res.json();
       this.recordings.set(data.sort((a, b) => b.lastModified.localeCompare(a.lastModified)));
@@ -86,6 +87,14 @@ export class YoutubeComponent implements OnInit, OnDestroy {
 
   deselectAll(): void {
     this.selected.set(new Set());
+  }
+
+  switchPlatform(p: 'twitch' | 'kick'): void {
+    this.platform.set(p);
+    this.selected.set(new Set());
+    this.uploadJobs.set(new Map());
+    this.uploadErrors.set(new Map());
+    this.loadRecordings();
   }
 
   async uploadSingle(recording: Recording): Promise<void> {
