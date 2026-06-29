@@ -180,7 +180,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   }
 
   getDownloadUrl(recording: Recording): string {
-    return `${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}`;
+    return `${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}&download=true`;
   }
 
   openPreview(recording: Recording): void {
@@ -200,10 +200,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   }
 
   downloadRecording(recording: Recording): void {
-    const a = document.createElement('a');
-    a.href = this.getDownloadUrl(recording);
-    a.download = recording.fileName;
-    a.click();
+    window.open(this.getDownloadUrl(recording), '_blank');
   }
 
   formatDate(iso: string): string {
