@@ -36,6 +36,8 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   uploadErrors = signal<Map<string, string>>(new Map());
   channel = signal('elttblue');
   selected = signal<Set<string>>(new Set());
+  previewRec = signal<Recording | null>(null);
+  expandedRow = signal<string | null>(null);
 
   private pollIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
@@ -171,6 +173,37 @@ export class YoutubeComponent implements OnInit, OnDestroy {
 
   getJobUrl(fileName: string): string | undefined {
     return this.uploadJobs().get(fileName)?.url;
+  }
+
+  getStreamUrl(recording: Recording): string {
+    return `${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}`;
+  }
+
+  getDownloadUrl(recording: Recording): string {
+    return `${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}`;
+  }
+
+  openPreview(recording: Recording): void {
+    this.previewRec.set(recording);
+  }
+
+  closePreview(): void {
+    this.previewRec.set(null);
+  }
+
+  toggleInlinePreview(fileName: string): void {
+    this.expandedRow.update(current => current === fileName ? null : fileName);
+  }
+
+  isExpanded(fileName: string): boolean {
+    return this.expandedRow() === fileName;
+  }
+
+  downloadRecording(recording: Recording): void {
+    const a = document.createElement('a');
+    a.href = this.getDownloadUrl(recording);
+    a.download = recording.fileName;
+    a.click();
   }
 
   formatDate(iso: string): string {

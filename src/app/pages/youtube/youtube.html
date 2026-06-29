@@ -78,17 +78,51 @@
                   }
                 </td>
                 <td class="yt__td-action">
-                  @if (getJobUrl(rec.fileName)) {
-                    <a [href]="getJobUrl(rec.fileName)" target="_blank" rel="noopener" class="yt__link">Ver &#8599;</a>
-                  } @else if (getJobStatus(rec.fileName) !== 'Queued' && getJobStatus(rec.fileName) !== 'Uploading' && uploading() !== rec.fileName) {
-                    <button class="yt__btn-sm" (click)="uploadSingle(rec)">Subir</button>
-                  }
+                  <div class="yt__action-btns">
+                    <button class="yt__btn-icon" title="Ver vídeo" (click)="openPreview(rec); $event.stopPropagation()">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <button class="yt__btn-icon" title="Vista previa" (click)="toggleInlinePreview(rec.fileName); $event.stopPropagation()">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                    </button>
+                    <button class="yt__btn-icon" title="Descargar" (click)="downloadRecording(rec); $event.stopPropagation()">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    </button>
+                    @if (getJobUrl(rec.fileName)) {
+                      <a [href]="getJobUrl(rec.fileName)" target="_blank" rel="noopener" class="yt__link" title="Ver en YouTube">YT &#8599;</a>
+                    } @else if (getJobStatus(rec.fileName) !== 'Queued' && getJobStatus(rec.fileName) !== 'Uploading' && uploading() !== rec.fileName) {
+                      <button class="yt__btn-sm" (click)="uploadSingle(rec); $event.stopPropagation()">Subir</button>
+                    }
+                  </div>
                 </td>
               </tr>
+              @if (isExpanded(rec.fileName)) {
+                <tr class="yt__inline-row">
+                  <td colspan="6" class="yt__inline-td">
+                    <div class="yt__inline-player">
+                      <video [src]="getStreamUrl(rec)" controls autoplay class="yt__inline-video"></video>
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>
       </div>
     }
   </div>
+
+  @if (previewRec()) {
+    <div class="yt__modal-overlay" (click)="closePreview()">
+      <div class="yt__modal" (click)="$event.stopPropagation()">
+        <div class="yt__modal-header">
+          <span class="yt__modal-title">{{ previewRec()!.fileName }}</span>
+          <button class="yt__modal-close" (click)="closePreview()">&times;</button>
+        </div>
+        <div class="yt__modal-body">
+          <video [src]="getStreamUrl(previewRec()!)" controls autoplay class="yt__modal-video"></video>
+        </div>
+      </div>
+    </div>
+  }
 </div>
