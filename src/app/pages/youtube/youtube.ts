@@ -20,6 +20,14 @@ interface UploadJob {
   fileName?: string;
 }
 
+interface YouTubeVideo {
+  id: string;
+  title: string;
+  publishedAt: string;
+  thumbnailUrl: string;
+  privacyStatus: string;
+}
+
 @Component({
   selector: 'app-youtube',
   standalone: true,
@@ -35,10 +43,16 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   uploadJobs = signal<Map<string, UploadJob>>(new Map());
   uploadErrors = signal<Map<string, string>>(new Map());
   channel = signal('elttblue');
-  platform = signal<'twitch' | 'kick'>('twitch');
+  platform = signal<'twitch' | 'kick' | 'youtube'>('twitch');
   selected = signal<Set<string>>(new Set());
   previewRec = signal<Recording | null>(null);
   expandedRow = signal<string | null>(null);
+
+  youtubeVideos = signal<YouTubeVideo[]>([]);
+  loadingYoutube = signal(false);
+  youtubeError = signal('');
+  deletingVideo = signal<string | null>(null);
+  confirmDeleteVideo = signal<YouTubeVideo | null>(null);
 
   private pollIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
@@ -89,12 +103,14 @@ export class YoutubeComponent implements OnInit, OnDestroy {
     this.selected.set(new Set());
   }
 
-  switchPlatform(p: 'twitch' | 'kick'): void {
+  switchPlatform(p: 'twitch' | 'kick' | 'youtube'): void {
     this.platform.set(p);
     this.selected.set(new Set());
     this.uploadJobs.set(new Map());
     this.uploadErrors.set(new Map());
-    this.loadRecordings();
+    if (p !== 'youtube') {
+      this.loadRecordings();
+    }
   }
 
   async uploadSingle(recording: Recording): Promise<void> {
@@ -221,5 +237,56 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   formatSize(mb: number): string {
     if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
     return `${mb} MB`;
+  }
+
+  async loadYoutubeVideos(): Promise<void> {
+    this.loadingYoutube.set(true);
+    this.youtubeError.set('');
+    try {
+      const res = await fetch(`${API_BASE}/api/youtube/videos`);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data: YouTubeVideo[] = await res.json();
+      this.youtubeVideos.set(data);
+    } catch (err) {
+      console.error('Error loading YouTube videos:', err);
+      this.youtubeError.set('No se pudieron cargar los videos de YouTube. Verifica el token OAuth.');
+    } finally {
+      this.loadingYoutube.set(false);
+    }
+  }
+
+  openConfirmDelete(video: YouTubeVideo): void {
+    this.confirmDeleteVideo.set(video);
+  }
+
+  closeConfirmDelete(): void {
+    this.confirmDeleteVideo.set(null);
+  }
+
+  async confirmDeleteVideoAction(): Promise<void> {
+    const video = this.confirmDeleteVideo();
+    if (!video) return;
+
+    this.deletingVideo.set(video.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/youtube/videos/${video.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `API error ${res.status}`);
+      }
+      this.youtubeVideos.update(videos => videos.filter(v => v.id !== video.id));
+      this.confirmDeleteVideo.set(null);
+    } catch (err: any) {
+      console.error('Error deleting YouTube video:', err);
+      this.youtubeError.set(err.message || 'Error al borrar el video.');
+    } finally {
+      this.deletingVideo.set(null);
+    }
+  }
+
+  formatYoutubeDate(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
 }

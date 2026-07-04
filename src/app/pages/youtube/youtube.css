@@ -331,3 +331,96 @@
   width: 100%;
   max-height: calc(90vh - 50px);
 }
+
+.yt__tab--youtube {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.yt__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.yt__section-count {
+  font-size: 0.85rem;
+  color: #adadb8;
+  font-weight: 500;
+}
+
+.yt__yt-thumb { width: 120px; }
+.yt__yt-title { }
+.yt__yt-date { width: 160px; }
+.yt__yt-privacy { width: 100px; }
+.yt__yt-action { width: 100px; }
+
+.yt__yt-td-thumb { padding: 8px 14px; }
+
+.yt__yt-thumb-img {
+  width: 110px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #1a1a1e;
+}
+
+.yt__yt-td-title {
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yt__btn-icon--delete {
+  color: #adadb8;
+}
+.yt__btn-icon--delete:hover {
+  background: #b71c1c;
+  color: #ef9a9a;
+}
+
+.yt__spinner-sm--red {
+  border-color: rgba(255, 0, 0, 0.3);
+  border-top-color: #ff0000;
+}
+
+.yt__modal--confirm {
+  max-width: 480px;
+}
+
+.yt__modal-body--confirm {
+  flex-direction: column;
+  padding: 32px 24px;
+  gap: 12px;
+  background: #18181b;
+}
+
+.yt__confirm-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #adadb8;
+}
+
+.yt__confirm-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #efeff1;
+  text-align: center;
+  word-break: break-word;
+}
+
+.yt__confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.yt__btn--danger {
+  background: #b71c1c;
+  color: #fff;
+}
+.yt__btn--danger:hover { background: #d32f2f; }
