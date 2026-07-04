@@ -424,3 +424,30 @@
   color: #fff;
 }
 .yt__btn--danger:hover { background: #d32f2f; }
+
+.yt__toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.yt__toast--error {
+  background: #b71c1c;
+  color: #ef9a9a;
+}
+
+.yt__toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.yt__toast-close:hover { opacity: 1; }

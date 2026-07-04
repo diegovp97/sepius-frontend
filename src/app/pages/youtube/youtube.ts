@@ -53,6 +53,8 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   youtubeError = signal('');
   deletingVideo = signal<string | null>(null);
   confirmDeleteVideo = signal<YouTubeVideo | null>(null);
+  deletingFromTable = signal<string | null>(null);
+  confirmDeleteRecording = signal<Recording | null>(null);
 
   private pollIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
@@ -288,5 +290,37 @@ export class YoutubeComponent implements OnInit, OnDestroy {
     const d = new Date(iso);
     return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
       + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  openConfirmDeleteRecording(rec: Recording): void {
+    this.confirmDeleteRecording.set(rec);
+  }
+
+  closeConfirmDeleteRecording(): void {
+    this.confirmDeleteRecording.set(null);
+  }
+
+  async confirmDeleteRecordingAction(): Promise<void> {
+    const rec = this.confirmDeleteRecording();
+    if (!rec) return;
+
+    this.deletingFromTable.set(rec.fileName);
+    try {
+      const res = await fetch(`${API_BASE}/api/youtube/videos/by-title/${encodeURIComponent(rec.fileName)}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `API error ${res.status}`);
+      }
+      const data = await res.json();
+      this.confirmDeleteRecording.set(null);
+      if (data.deleted === 0) {
+        this.youtubeError.set('No se encontró ningún video en YouTube con ese nombre.');
+      }
+    } catch (err: any) {
+      console.error('Error deleting from YouTube:', err);
+      this.youtubeError.set(err.message || 'Error al borrar de YouTube.');
+    } finally {
+      this.deletingFromTable.set(null);
+    }
   }
 }

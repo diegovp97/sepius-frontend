@@ -32,6 +32,12 @@
   </header>
 
   <div class="yt__content">
+    @if (youtubeError() && platform() !== 'youtube') {
+      <div class="yt__toast yt__toast--error">
+        <span>{{ youtubeError() }}</span>
+        <button class="yt__toast-close" (click)="youtubeError.set('')">&times;</button>
+      </div>
+    }
     @if (platform() === 'youtube') {
       @if (loadingYoutube()) {
         <div class="yt__center">
@@ -173,6 +179,13 @@
                       } @else if (getJobStatus(rec.fileName) !== 'Queued' && getJobStatus(rec.fileName) !== 'Uploading' && uploading() !== rec.fileName) {
                         <button class="yt__btn-sm" (click)="uploadSingle(rec); $event.stopPropagation()">Subir</button>
                       }
+                      <button class="yt__btn-icon yt__btn-icon--delete" title="Borrar de YouTube" (click)="openConfirmDeleteRecording(rec); $event.stopPropagation()" [disabled]="deletingFromTable() === rec.fileName">
+                        @if (deletingFromTable() === rec.fileName) {
+                          <span class="yt__spinner-sm yt__spinner-sm--red"></span>
+                        } @else {
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                        }
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -222,6 +235,32 @@
             <button class="yt__btn yt__btn--outline" (click)="closeConfirmDelete()">Cancelar</button>
             <button class="yt__btn yt__btn--danger" (click)="confirmDeleteVideoAction()" [disabled]="deletingVideo() !== null">
               @if (deletingVideo()) {
+                <span class="yt__spinner-sm"></span> Borrando...
+              } @else {
+                Borrar
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (confirmDeleteRecording()) {
+    <div class="yt__modal-overlay" (click)="closeConfirmDeleteRecording()">
+      <div class="yt__modal yt__modal--confirm" (click)="$event.stopPropagation()">
+        <div class="yt__modal-header">
+          <span class="yt__modal-title">Borrar de YouTube</span>
+          <button class="yt__modal-close" (click)="closeConfirmDeleteRecording()">&times;</button>
+        </div>
+        <div class="yt__modal-body yt__modal-body--confirm">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="#ff0000"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          <p class="yt__confirm-text">¿Eliminar de YouTube todos los videos con este nombre?</p>
+          <p class="yt__confirm-title">{{ confirmDeleteRecording()!.fileName }}</p>
+          <div class="yt__confirm-actions">
+            <button class="yt__btn yt__btn--outline" (click)="closeConfirmDeleteRecording()">Cancelar</button>
+            <button class="yt__btn yt__btn--danger" (click)="confirmDeleteRecordingAction()" [disabled]="deletingFromTable() !== null">
+              @if (deletingFromTable()) {
                 <span class="yt__spinner-sm"></span> Borrando...
               } @else {
                 Borrar
