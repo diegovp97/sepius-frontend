@@ -413,6 +413,12 @@
   word-break: break-word;
 }
 
+.yt__confirm-sub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #adadb8;
+}
+
 .yt__confirm-actions {
   display: flex;
   gap: 10px;

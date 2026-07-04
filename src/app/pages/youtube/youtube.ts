@@ -306,19 +306,16 @@ export class YoutubeComponent implements OnInit, OnDestroy {
 
     this.deletingFromTable.set(rec.fileName);
     try {
-      const res = await fetch(`${API_BASE}/api/youtube/videos/by-title/${encodeURIComponent(rec.fileName)}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/recordings/file?filePath=${encodeURIComponent(rec.fullPath)}`, { method: 'DELETE' });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `API error ${res.status}`);
       }
-      const data = await res.json();
+      this.recordings.update(list => list.filter(r => r.fileName !== rec.fileName));
       this.confirmDeleteRecording.set(null);
-      if (data.deleted === 0) {
-        this.youtubeError.set('No se encontró ningún video en YouTube con ese nombre.');
-      }
     } catch (err: any) {
-      console.error('Error deleting from YouTube:', err);
-      this.youtubeError.set(err.message || 'Error al borrar de YouTube.');
+      console.error('Error deleting file:', err);
+      this.youtubeError.set(err.message || 'Error al borrar el archivo.');
     } finally {
       this.deletingFromTable.set(null);
     }

@@ -250,13 +250,14 @@
     <div class="yt__modal-overlay" (click)="closeConfirmDeleteRecording()">
       <div class="yt__modal yt__modal--confirm" (click)="$event.stopPropagation()">
         <div class="yt__modal-header">
-          <span class="yt__modal-title">Borrar de YouTube</span>
+          <span class="yt__modal-title">Borrar grabación</span>
           <button class="yt__modal-close" (click)="closeConfirmDeleteRecording()">&times;</button>
         </div>
         <div class="yt__modal-body yt__modal-body--confirm">
           <svg viewBox="0 0 24 24" width="48" height="48" fill="#ff0000"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          <p class="yt__confirm-text">¿Eliminar de YouTube todos los videos con este nombre?</p>
+          <p class="yt__confirm-text">¿Eliminar este archivo de la VPS?</p>
           <p class="yt__confirm-title">{{ confirmDeleteRecording()!.fileName }}</p>
+          <p class="yt__confirm-sub">{{ formatSize(confirmDeleteRecording()!.sizeMB) }}</p>
           <div class="yt__confirm-actions">
             <button class="yt__btn yt__btn--outline" (click)="closeConfirmDeleteRecording()">Cancelar</button>
             <button class="yt__btn yt__btn--danger" (click)="confirmDeleteRecordingAction()" [disabled]="deletingFromTable() !== null">
