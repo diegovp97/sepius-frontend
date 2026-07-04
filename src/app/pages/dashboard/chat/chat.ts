@@ -1,14 +1,5 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  Input,
-  signal,
-  ViewChild,
-  ElementRef,
-} from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, signal, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
 import * as signalR from '@microsoft/signalr';
 import { environment } from '../../../../environments/environment';
 
@@ -33,7 +24,7 @@ function nickColor(nick: string): string {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule],
   templateUrl: './chat.html',
   styleUrl: './chat.css',
 })
