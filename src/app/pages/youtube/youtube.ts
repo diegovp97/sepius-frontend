@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { authFetch, withToken } from '../../services/auth';
 
 const API_BASE = environment.apiUrl;
 
@@ -59,7 +60,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set('');
     try {
-      const res = await fetch(`${API_BASE}/api/recordings/list?channelName=${this.channel()}&platform=${this.platform()}`);
+      const res = await authFetch(`${API_BASE}/api/recordings/list?channelName=${this.channel()}&platform=${this.platform()}`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data: Recording[] = await res.json();
       this.recordings.set(data.sort((a, b) => b.lastModified.localeCompare(a.lastModified)));
@@ -107,7 +108,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
 
     try {
       const url = `${API_BASE}/api/recordings/upload?filePath=${encodeURIComponent(recording.fullPath)}&channelName=${this.channel()}`;
-      const res = await fetch(url, { method: 'POST' });
+      const res = await authFetch(url, { method: 'POST' });
 
       if (res.status === 202) {
         const data: UploadJob = await res.json();
@@ -133,7 +134,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   private pollJobStatus(fileName: string, jobId: string): void {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/recordings/upload/status/${jobId}`);
+        const res = await authFetch(`${API_BASE}/api/recordings/upload/status/${jobId}`);
         if (!res.ok) return;
         const job: UploadJob = await res.json();
         job.fileName = fileName;
@@ -189,11 +190,11 @@ export class YoutubeComponent implements OnInit, OnDestroy {
   }
 
   getStreamUrl(recording: Recording): string {
-    return `${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}`;
+    return withToken(`${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}`);
   }
 
   getDownloadUrl(recording: Recording): string {
-    return `${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}&download=true`;
+    return withToken(`${API_BASE}/api/recordings/stream?filePath=${encodeURIComponent(recording.fullPath)}&download=true`);
   }
 
   openPreview(recording: Recording): void {
@@ -241,7 +242,7 @@ export class YoutubeComponent implements OnInit, OnDestroy {
 
     this.deletingFromTable.set(rec.fileName);
     try {
-      const res = await fetch(`${API_BASE}/api/recordings/file?filePath=${encodeURIComponent(rec.fullPath)}`, { method: 'DELETE' });
+      const res = await authFetch(`${API_BASE}/api/recordings/file?filePath=${encodeURIComponent(rec.fullPath)}`, { method: 'DELETE' });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `API error ${res.status}`);

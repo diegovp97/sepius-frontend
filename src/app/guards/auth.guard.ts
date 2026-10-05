@@ -1,12 +1,12 @@
-import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { inject } from '@angular/core';
 import { environment } from '../../environments/environment';
+import { getToken, setToken } from '../services/auth';
 
 export const authGuard: CanActivateFn = async () => {
   const router = inject(Router);
-  const token = localStorage.getItem('sepius_token');
 
-  if (token) return true;
+  if (getToken()) return true;
 
   const username = prompt('Usuario:');
   if (!username) return router.createUrlTree(['/']);
@@ -23,11 +23,11 @@ export const authGuard: CanActivateFn = async () => {
 
     if (res.ok) {
       const data = await res.json();
-      localStorage.setItem('sepius_token', data.token);
+      setToken(data.token);
       return true;
     }
 
-    alert('Credenciales incorrectas.');
+    alert(res.status === 429 ? 'Demasiados intentos. Espera un minuto.' : 'Credenciales incorrectas.');
     return router.createUrlTree(['/']);
   } catch {
     alert('Error de conexión con el servidor.');
