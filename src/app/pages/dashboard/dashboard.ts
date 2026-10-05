@@ -39,7 +39,14 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
   private stallTimer: ReturnType<typeof setTimeout> | null = null;
   private liveCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectAttempts = 0;
+  private reconnectPending = false;
+  private startRun = 0;
+  private videoListeners: Array<[string, EventListener]> = [];
+  private readonly log: (...args: unknown[]) => void =
+    environment.production ? () => {} : console.log.bind(console);
   private readonly RECONNECT_DELAY_MS = 10_000;
+  private readonly RECONNECT_MAX_MS = 60_000;
   private readonly STALL_TIMEOUT_MS = 4_000;
   private readonly LIVE_CHECK_INTERVAL_MS = 15_000;
 
@@ -51,7 +58,9 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   }
 
   async startStream(): Promise<void> {
-    console.log(`[sepius] startStream() → consultando /active para '${this.channel}'`);
+    const run = ++this.startRun;
+    this.clearReconnect();
+    this.log(`[sepius] startStream() → consultando /active para '${this.channel}'`);
     this.status.set('loading');
     this.errorMsg.set('');
     this.stopHls();
@@ -61,7 +70,8 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       if (!res.ok) throw new Error(`API error ${res.status}`);
 
       const data: { isLive: boolean; platform: string | null; hlsUrl: string | null; isReady: boolean } = await res.json();
-      console.log('[sepius] /active →', data);
+      if (run !== this.startRun) return; // llegó otra llamada más reciente
+      this.log('[sepius] /active →', data);
 
       if (!data.isLive || !data.hlsUrl) {
         console.warn(`[sepius] Canal '${this.channel}' offline o sin HLS.`);
@@ -77,16 +87,18 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         const rawUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
         const fullUrl = rawUrl;
         this.currentHlsUrl = fullUrl;
-        console.log(`[sepius] HLS listo en ${data.platform}. Montando: ${fullUrl}`);
+        this.log(`[sepius] HLS listo en ${data.platform}. Montando: ${fullUrl}`);
         this.mountHls(fullUrl);
       } else {
-        console.log(`[sepius] HLS aún no listo (platform=${data.platform}). Esperando...`);
+        this.log(`[sepius] HLS aún no listo (platform=${data.platform}). Esperando...`);
         this.pollUntilReady(data.hlsUrl);
       }
     } catch (err) {
+      if (run !== this.startRun) return;
       console.error('[sepius] Error en startStream():', err);
       this.status.set('error');
-      this.errorMsg.set('No se pudo contactar con el backend. ¿Está corriendo?');
+      this.errorMsg.set('No se pudo contactar con el servidor. Reintentando…');
+      this.scheduleReconnect();
     }
   }
 
@@ -94,13 +106,14 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     let attempts = 0;
     const MAX_ATTEMPTS = 15; // 15 × 2s = 30s máximo
 
+    if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = setInterval(async () => {
       attempts++;
-      console.log(`[sepius] poll #${attempts} → /active`);
+      this.log(`[sepius] poll #${attempts} → /active`);
       try {
         const res = await fetch(`${API_BASE}/api/live/${this.channel}/active`);
         const data: { isLive: boolean; hlsUrl: string | null; isReady: boolean } = await res.json();
-        console.log(`[sepius] poll #${attempts} ←`, data);
+        this.log(`[sepius] poll #${attempts} ←`, data);
 
         if (data.isReady && data.hlsUrl) {
           clearInterval(this.pollTimer!);
@@ -108,7 +121,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
           const rawUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
           const fullUrl = rawUrl;
           this.currentHlsUrl = fullUrl;
-          console.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
+          this.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
           this.mountHls(fullUrl);
         } else if (!data.isLive) {
           clearInterval(this.pollTimer!);
@@ -167,12 +180,13 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.hls.attachMedia(video);
 
       this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('[sepius] MANIFEST_PARSED → reproduciendo desde el live edge.');
+        this.log('[sepius] MANIFEST_PARSED → reproduciendo desde el live edge.');
         // Saltar al borde live antes de reproducir
         if (Number.isFinite(video.duration)) {
           video.currentTime = video.duration;
         }
         this.status.set('playing');
+        this.reconnectAttempts = 0;
         this.isAtLiveEdge.set(true);
         this.startLiveCheck();
         video.play().catch((err: unknown) => {
@@ -197,14 +211,14 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         }, this.STALL_TIMEOUT_MS);
       };
 
-      video.addEventListener('waiting', resetStallTimer);
-      video.addEventListener('stalled', resetStallTimer);
-      video.addEventListener('playing', () => {
+      this.addVideoListener(video, 'waiting', resetStallTimer);
+      this.addVideoListener(video, 'stalled', resetStallTimer);
+      this.addVideoListener(video, 'playing', () => {
         if (this.stallTimer) clearTimeout(this.stallTimer);
       });
 
       // Detectar si el usuario se ha alejado del borde live
-      video.addEventListener('timeupdate', () => {
+      this.addVideoListener(video, 'timeupdate', () => {
         if (!this.hls) return;
         const latency = (this.hls as any).latency as number | undefined;
         this.isAtLiveEdge.set(latency === undefined || latency < 15);
@@ -299,15 +313,36 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /** Una sola cola de reintentos: cancela la anterior y espera más cada vez (10s → 60s). */
   private scheduleReconnect(): void {
-    this.reconnectCountdown.set(this.RECONNECT_DELAY_MS / 1000);
+    this.clearReconnect();
+    const delay = Math.min(this.RECONNECT_DELAY_MS * 2 ** this.reconnectAttempts, this.RECONNECT_MAX_MS);
+    this.reconnectAttempts++;
+
+    this.reconnectCountdown.set(Math.round(delay / 1000));
     this.countdownInterval = setInterval(() =>
-      this.reconnectCountdown.update(v => v - 1), 1000);
+      this.reconnectCountdown.update(v => Math.max(0, v - 1)), 1000);
 
     this.reconnectTimer = setTimeout(() => {
-      clearInterval(this.countdownInterval!);
+      this.clearReconnect();
+      // Con la pestaña oculta no se gasta red: se reconecta al volver a verla.
+      if (document.hidden) {
+        this.reconnectPending = true;
+        return;
+      }
       this.startStream();
-    }, this.RECONNECT_DELAY_MS);
+    }, delay);
+  }
+
+  private clearReconnect(): void {
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+    if (this.countdownInterval) { clearInterval(this.countdownInterval); this.countdownInterval = null; }
+    this.reconnectPending = false;
+  }
+
+  private addVideoListener(video: HTMLVideoElement, type: string, fn: EventListener): void {
+    video.addEventListener(type, fn);
+    this.videoListeners.push([type, fn]);
   }
 
   clickToPlay(): void {
@@ -330,8 +365,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   }
 
   reconnectNow(): void {
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    if (this.countdownInterval) clearInterval(this.countdownInterval);
+    this.reconnectAttempts = 0;
     this.startStream();
   }
 
@@ -344,7 +378,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private onVisibilityChange = (): void => {
     if (document.visibilityState !== 'visible') return;
     const video = this.videoRef?.nativeElement;
-    if (this.status() === 'error' && !this.reconnectTimer) {
+    if (this.status() === 'error' || this.reconnectPending) {
       this.reconnectNow();
     } else if (video?.paused) {
       video.play().catch(() => {});
@@ -355,11 +389,13 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     this.stopLiveCheck();
     this.hls?.destroy();
     this.hls = null;
-    if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
     if (this.stallTimer) { clearTimeout(this.stallTimer); this.stallTimer = null; }
     // Resetear el elemento <video> para eliminar cualquier MediaSource residual
     const video = this.videoRef?.nativeElement;
     if (video) {
+      for (const [type, fn] of this.videoListeners) video.removeEventListener(type, fn);
+      this.videoListeners = [];
       video.pause();
       video.removeAttribute('src');
       video.load();
@@ -367,9 +403,9 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.startRun++; // invalida cualquier startStream en vuelo
     this.stopHls();
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    if (this.countdownInterval) clearInterval(this.countdownInterval);
+    this.clearReconnect();
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
 }
