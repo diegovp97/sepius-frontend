@@ -77,8 +77,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         console.warn(`[sepius] Canal '${this.channel}' offline o sin HLS.`);
         this.status.set('error');
         this.errorMsg.set(`${this.channel} no está en directo ahora mismo.`);
-        this.scheduleReconnect();
-        return;
+        return; // apagado: sin sondeo en bucle; se vuelve a comprobar a mano o al volver a la pestaña
       }
 
       this.platform.set(data.platform as 'twitch' | 'kick');
@@ -298,7 +297,6 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
           this.stopHls();
           this.status.set('error');
           this.errorMsg.set(`${this.channel} ha terminado el directo.`);
-          this.scheduleReconnect();
         }
       } catch {
         // Ignorar errores de red en el check
@@ -313,7 +311,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  /** Una sola cola de reintentos: cancela la anterior y espera más cada vez (10s → 60s). */
+  /** Solo para fallos reales (API caída, error de vídeo): una cola, con espera creciente 10s → 60s. */
   private scheduleReconnect(): void {
     this.clearReconnect();
     const delay = Math.min(this.RECONNECT_DELAY_MS * 2 ** this.reconnectAttempts, this.RECONNECT_MAX_MS);
