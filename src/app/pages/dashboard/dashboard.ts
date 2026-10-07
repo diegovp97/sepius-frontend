@@ -368,6 +368,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   }
 
   castStream(): void {
+    console.log('[Chromecast] click en Cast | casting=', this.cast.isCasting(), '| hls=', this.currentHlsUrl || '(vacío)');
     if (this.cast.isCasting()) {
       this.cast.stopCasting();
       return;

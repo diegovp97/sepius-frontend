@@ -41,10 +41,17 @@ export class ChromecastService {
       });
 
       this.isAvailable.set(true);
+      console.log('[Chromecast] SDK listo. cast state =', this.castContext.getCastState());
+
+      this.castContext.addEventListener(
+        cast.framework.CastContextEventType.CAST_STATE_CHANGED,
+        (event: any) => console.log('[Chromecast] CAST_STATE_CHANGED →', event.castState)
+      );
 
       this.castContext.addEventListener(
         cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
         (event: any) => {
+          console.log('[Chromecast] SESSION_STATE_CHANGED →', event.sessionState, event.errorCode ?? '');
           this.zone.run(() => {
             if (event.sessionState === cast.framework.SessionState.SESSION_STARTED) {
               this.session = this.castContext.getCurrentSession();
@@ -66,6 +73,8 @@ export class ChromecastService {
   }
 
   async castHls(hlsUrl: string, title: string, thumbnail?: string): Promise<void> {
+    console.log('[Chromecast] castHls() url=', hlsUrl, '| contexto=', !!this.castContext,
+      '| cast state=', this.castContext?.getCastState?.(), '| sesión previa=', !!this.session);
     if (!this.session) {
       this.session = this.castContext?.getCurrentSession();
     }
@@ -75,16 +84,24 @@ export class ChromecastService {
         alert('Chromecast: Modo demo\n\nEn producción esto enviaría el stream a tu TV.\nURL: ' + hlsUrl);
         return;
       }
-      if (!this.castContext) return;
+      if (!this.castContext) {
+        console.warn('[Chromecast] Sin castContext: el SDK no se inicializó.');
+        return;
+      }
       // Abre el selector de dispositivos; la promesa falla si el usuario lo cierra o no hay dispositivos.
       try {
+        console.log('[Chromecast] requestSession() → abriendo selector de dispositivos…');
         await this.castContext.requestSession();
+        console.log('[Chromecast] requestSession() OK');
       } catch (err) {
         console.warn('[Chromecast] Sesión no iniciada:', err);
         return;
       }
       this.session = this.castContext.getCurrentSession();
-      if (!this.session) return;
+      if (!this.session) {
+        console.warn('[Chromecast] requestSession terminó pero no hay sesión activa.');
+        return;
+      }
     }
 
     const mediaInfo = new chrome.cast.media.MediaInfo(hlsUrl, 'application/x-mpegURL');
@@ -98,10 +115,18 @@ export class ChromecastService {
     request.autoplay = true;
     request.currentTime = 0;
 
-    this.session.loadMedia(request);
+    console.log('[Chromecast] loadMedia() →', hlsUrl);
+    try {
+      const errorCode = await this.session.loadMedia(request);
+      if (errorCode) console.error('[Chromecast] loadMedia FALLÓ, código:', errorCode);
+      else console.log('[Chromecast] loadMedia OK: el receptor aceptó el stream');
+    } catch (err) {
+      console.error('[Chromecast] loadMedia excepción:', err);
+    }
   }
 
   stopCasting(): void {
+    console.log('[Chromecast] stopCasting()');
     this.session?.end(true);
   }
 }
