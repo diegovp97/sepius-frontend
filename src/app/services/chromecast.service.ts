@@ -25,10 +25,10 @@ export class ChromecastService {
     }
 
     const checkCast = () => {
-      // El SDK carga por partes: framework puede existir antes que cast.media y chrome.cast.
+      // El SDK carga por partes. Las clases de media del emisor viven en chrome.cast.media (no en cast.media).
       if (
-        typeof cast === 'undefined' || !cast.framework || !cast.media ||
-        typeof chrome === 'undefined' || !chrome.cast || !chrome.cast.AutoJoinPolicy
+        typeof cast === 'undefined' || !cast.framework ||
+        typeof chrome === 'undefined' || !chrome.cast || !chrome.cast.media || !chrome.cast.AutoJoinPolicy
       ) {
         setTimeout(checkCast, 500);
         return;
@@ -36,7 +36,7 @@ export class ChromecastService {
 
       this.castContext = cast.framework.CastContext.getInstance();
       this.castContext.setOptions({
-        receiverApplicationId: cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+        receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
         autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
       });
 
@@ -77,14 +77,14 @@ export class ChromecastService {
       return;
     }
 
-    const mediaInfo = new cast.media.MediaInfo(hlsUrl, 'application/x-mpegURL');
-    mediaInfo.metadata = new cast.media.GenericMediaMetadata();
+    const mediaInfo = new chrome.cast.media.MediaInfo(hlsUrl, 'application/x-mpegURL');
+    mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
     mediaInfo.metadata.title = title;
     if (thumbnail) {
       mediaInfo.metadata.images = [{ url: thumbnail }];
     }
 
-    const request = new cast.media.LoadRequest(mediaInfo);
+    const request = new chrome.cast.media.LoadRequest(mediaInfo);
     request.autoplay = true;
     request.currentTime = 0;
 
