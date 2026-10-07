@@ -9,7 +9,6 @@
 import Hls from 'hls.js';
 import { environment } from '../../../environments/environment';
 import { ChatComponent } from './chat/chat';
-import { ChromecastService } from '../../services/chromecast.service';
 
 const API_BASE = environment.apiUrl;
 
@@ -49,8 +48,6 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private readonly RECONNECT_MAX_MS = 60_000;
   private readonly STALL_TIMEOUT_MS = 4_000;
   private readonly LIVE_CHECK_INTERVAL_MS = 15_000;
-
-  constructor(public readonly cast: ChromecastService) {}
 
   ngAfterViewInit(): void {
     this.startStream();
@@ -365,17 +362,6 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   reconnectNow(): void {
     this.reconnectAttempts = 0;
     this.startStream();
-  }
-
-  castStream(): void {
-    console.log('[Chromecast] click en Cast | casting=', this.cast.isCasting(), '| hls=', this.currentHlsUrl || '(vacío)');
-    if (this.cast.isCasting()) {
-      this.cast.stopCasting();
-      return;
-    }
-    if (this.currentHlsUrl) {
-      this.cast.castHls(this.currentHlsUrl, `elttblue - ${this.platform() ?? 'live'}`);
-    }
   }
 
   private onVisibilityChange = (): void => {
