@@ -25,7 +25,11 @@ export class ChromecastService {
     }
 
     const checkCast = () => {
-      if (typeof cast === 'undefined' || !cast.framework) {
+      // El SDK carga por partes: framework puede existir antes que cast.media y chrome.cast.
+      if (
+        typeof cast === 'undefined' || !cast.framework || !cast.media ||
+        typeof chrome === 'undefined' || !chrome.cast || !chrome.cast.AutoJoinPolicy
+      ) {
         setTimeout(checkCast, 500);
         return;
       }
