@@ -368,6 +368,10 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   }
 
   castStream(): void {
+    if (this.cast.isCasting()) {
+      this.cast.stopCasting();
+      return;
+    }
     if (this.currentHlsUrl) {
       this.cast.castHls(this.currentHlsUrl, `elttblue - ${this.platform() ?? 'live'}`);
     }

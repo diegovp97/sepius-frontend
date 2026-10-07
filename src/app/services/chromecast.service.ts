@@ -65,7 +65,7 @@ export class ChromecastService {
     setTimeout(checkCast, 1000);
   }
 
-  castHls(hlsUrl: string, title: string, thumbnail?: string): void {
+  async castHls(hlsUrl: string, title: string, thumbnail?: string): Promise<void> {
     if (!this.session) {
       this.session = this.castContext?.getCurrentSession();
     }
@@ -73,8 +73,18 @@ export class ChromecastService {
       if (this.isLocalhost) {
         console.log('[Chromecast] Demo mode - URL:', hlsUrl, '| Title:', title);
         alert('Chromecast: Modo demo\n\nEn producción esto enviaría el stream a tu TV.\nURL: ' + hlsUrl);
+        return;
       }
-      return;
+      if (!this.castContext) return;
+      // Abre el selector de dispositivos; la promesa falla si el usuario lo cierra o no hay dispositivos.
+      try {
+        await this.castContext.requestSession();
+      } catch (err) {
+        console.warn('[Chromecast] Sesión no iniciada:', err);
+        return;
+      }
+      this.session = this.castContext.getCurrentSession();
+      if (!this.session) return;
     }
 
     const mediaInfo = new chrome.cast.media.MediaInfo(hlsUrl, 'application/x-mpegURL');
