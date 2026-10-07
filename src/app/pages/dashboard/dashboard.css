@@ -204,6 +204,12 @@
   animation: blink 1.2s ease-in-out infinite;
 }
 
+.dashboard__btn--casting {
+  background: rgba(95, 214, 138, 0.16);
+  color: var(--ok);
+  box-shadow: inset 0 0 0 1px rgba(95, 214, 138, 0.4);
+}
+
 .dashboard__ext-link {
   display: inline-flex;
   align-items: center;
