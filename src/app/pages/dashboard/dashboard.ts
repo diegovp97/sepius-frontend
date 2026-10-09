@@ -21,8 +21,14 @@ const API_BASE = environment.apiUrl;
   styleUrl: './dashboard.css',
 })
 export class DashboardComponent implements AfterViewInit, OnDestroy {
-  readonly channel = 'elttblue';
-  platform = signal<'twitch' | 'kick' | null>(null);
+  // Por defecto elttblue; ?canal=<nombre> permite abrir otro canal retransmitido (pruebas).
+  readonly channel = DashboardComponent.resolveChannel();
+  platform = signal<'twitch' | 'kick' | 'starvios' | null>(null);
+
+  private static resolveChannel(): string {
+    const c = new URLSearchParams(window.location.search).get('canal')?.trim().toLowerCase();
+    return c && /^[a-z0-9_]{1,25}$/.test(c) ? c : 'elttblue';
+  }
   private currentHlsUrl = '';
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
@@ -80,7 +86,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         return; // apagado: sin sondeo en bucle; se vuelve a comprobar a mano o al volver a la pestaña
       }
 
-      this.platform.set(data.platform as 'twitch' | 'kick');
+      this.platform.set(data.platform as 'twitch' | 'kick' | 'starvios');
 
       if (data.isReady) {
         const rawUrl = data.hlsUrl.startsWith('/') ? `${API_BASE}${data.hlsUrl}` : data.hlsUrl;
@@ -373,7 +379,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       return;
     }
     if (this.currentHlsUrl) {
-      this.cast.castHls(this.currentHlsUrl, `elttblue - ${this.platform() ?? 'live'}`);
+      this.cast.castHls(this.currentHlsUrl, `${this.channel} - ${this.platform() ?? 'live'}`);
     }
   }
 
