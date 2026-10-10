@@ -53,7 +53,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     environment.production ? () => {} : console.log.bind(console);
   private readonly RECONNECT_DELAY_MS = 10_000;
   private readonly RECONNECT_MAX_MS = 60_000;
-  private readonly STALL_TIMEOUT_MS = 4_000;
+  private readonly STALL_TIMEOUT_MS = 10_000;
   private readonly LIVE_CHECK_INTERVAL_MS = 15_000;
 
   constructor(public readonly cast: ChromecastService) {}
@@ -160,16 +160,24 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.hls = new Hls({
         // Empezar siempre en el borde live (-1 = último segmento)
         startPosition: -1,
-        maxBufferLength: 16,
-        maxMaxBufferLength: 40,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
         backBufferLength: 0,
-        liveSyncDurationCount: 4,
-        liveMaxLatencyDurationCount: 8,
-        manifestLoadingTimeOut: 15000,
-        manifestLoadingMaxRetry: 4,
-        levelLoadingTimeOut: 15000,
-        fragLoadingTimeOut: 30000,
-        fragLoadingMaxRetry: 4,
+        // Más colchón sobre el borde live: el servidor a veces tarda 5-11 s en aceptar una conexión
+        // y con 16 s de margen un solo tirón vaciaba el buffer (cortes en móvil).
+        liveSyncDurationCount: 6,
+        liveMaxLatencyDurationCount: 12,
+        // Timeouts cortos con reintentos rápidos: una conexión perdida suele funcionar al reintentar
+        // a los pocos segundos; esperar 15-30 s dejaba el vídeo parado.
+        manifestLoadingTimeOut: 8000,
+        manifestLoadingMaxRetry: 6,
+        manifestLoadingRetryDelay: 500,
+        levelLoadingTimeOut: 5000,
+        levelLoadingMaxRetry: 8,
+        levelLoadingRetryDelay: 500,
+        fragLoadingTimeOut: 10000,
+        fragLoadingMaxRetry: 6,
+        fragLoadingRetryDelay: 500,
         // Desactivar Web Worker: en algunos browsers el worker (blob URL) falla al
         // cargar, lo que provoca que el SourceBuffer sea eliminado del MediaSource
         // justo antes del primer appendBuffer → bufferAppendError fatal.
@@ -278,10 +286,28 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Reproductor nativo (Safari/iPhone sin hls.js): sin reconexión propia, así que se gestiona aquí.
       video.src = hlsUrl;
-      video.addEventListener('loadedmetadata', () => {
-        video.play();
+      this.addVideoListener(video, 'loadedmetadata', () => {
         this.status.set('playing');
+        this.reconnectAttempts = 0;
+        video.play().catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'NotAllowedError') this.needsInteraction.set(true);
+        });
+      });
+      this.addVideoListener(video, 'error', () => {
+        this.status.set('error');
+        this.errorMsg.set('Error de stream HLS. Reconectando...');
+        this.scheduleReconnect();
+      });
+      this.addVideoListener(video, 'waiting', () => {
+        if (this.stallTimer) clearTimeout(this.stallTimer);
+        this.stallTimer = setTimeout(() => {
+          if (!video.paused && video.readyState < 3) this.startStream();
+        }, this.STALL_TIMEOUT_MS * 2);
+      });
+      this.addVideoListener(video, 'playing', () => {
+        if (this.stallTimer) clearTimeout(this.stallTimer);
       });
     }
   }
