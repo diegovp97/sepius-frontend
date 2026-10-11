@@ -250,3 +250,108 @@
 .chat__btn--ghost:hover {
   background: rgba(255, 233, 205, 0.06);
 }
+
+/* ── Respuestas ─────────────────────────────────────────────────────────── */
+.chat__msg {
+  position: relative;
+}
+.chat__msg--flash {
+  background: rgba(255, 233, 205, 0.14);
+  transition: background 0.4s;
+}
+
+.chat__quote {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  margin: 0 0 3px;
+  padding: 2px 8px;
+  border: 0;
+  border-left: 2px solid var(--border-strong);
+  border-radius: 4px;
+  background: rgba(255, 233, 205, 0.04);
+  color: var(--muted);
+  font: 400 0.76rem var(--font);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.chat__quote:hover {
+  background: rgba(255, 233, 205, 0.09);
+}
+.chat__quote-nick {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+.chat__quote-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat__reply-btn {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font: 700 0.85rem var(--font);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.chat__msg:hover .chat__reply-btn,
+.chat__reply-btn:focus-visible {
+  opacity: 1;
+}
+.chat__reply-btn:hover {
+  color: var(--text);
+}
+/* En pantallas táctiles no hay hover: el botón se ve siempre, discreto. */
+@media (hover: none) {
+  .chat__reply-btn {
+    opacity: 0.55;
+  }
+}
+
+.chat__replying {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.chat__replying-label {
+  flex-shrink: 0;
+}
+.chat__replying-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--faint);
+}
+.chat__replying-close {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.chat__replying-close:hover {
+  color: var(--text);
+}
