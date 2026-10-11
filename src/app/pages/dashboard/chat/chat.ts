@@ -2,11 +2,20 @@ import { Component, OnInit, OnDestroy, Input, signal, ViewChild, ElementRef } fr
 import { FormsModule } from '@angular/forms';
 import * as signalR from '@microsoft/signalr';
 import { environment } from '../../../../environments/environment';
+import { EMOJIS, EmojiDef } from './emoji-list';
+
+/** Trozo de un mensaje: texto normal o un emoji :nombre: ya resuelto a su imagen. */
+interface Part {
+  text?: string;
+  emoji?: string;
+  name?: string;
+}
 
 interface ReplyRef {
   id: number;
   nickname: string;
   text: string;
+  parts?: Part[];
 }
 
 interface ChatMsg {
@@ -16,6 +25,33 @@ interface ChatMsg {
   sentAt: string;
   color?: string;
   replyTo?: ReplyRef | null;
+  parts?: Part[];
+}
+
+const EMOJI_URL = new Map(EMOJIS.map(e => [e.name, e.url]));
+const SHORTCODE = /:([a-z0-9_-]{1,40}):/gi;
+
+/** Separa el texto en trozos; los :nombre: que existen en el set de Owncast pasan a imagen. Nunca se usa innerHTML. */
+function toParts(text: string): Part[] {
+  const parts: Part[] = [];
+  let last = 0;
+  for (const m of text.matchAll(SHORTCODE)) {
+    const url = EMOJI_URL.get(m[1].toLowerCase());
+    if (!url) continue;
+    if (m.index! > last) parts.push({ text: text.slice(last, m.index) });
+    parts.push({ emoji: url, name: m[1].toLowerCase() });
+    last = m.index! + m[0].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
+}
+
+function withParts(m: ChatMsg): ChatMsg {
+  return {
+    ...m,
+    parts: toParts(m.text),
+    replyTo: m.replyTo ? { ...m.replyTo, parts: toParts(m.replyTo.text) } : m.replyTo,
+  };
 }
 
 const COLORS = [
@@ -48,6 +84,13 @@ export class ChatComponent implements OnInit, OnDestroy {
   nickSaved = signal(!!localStorage.getItem('chat-nickname'));
   editingNick = signal(false);
   replyingTo = signal<ChatMsg | null>(null);
+  emojiOpen = signal(false);
+  emojiFilter = signal('');
+  readonly emojis = EMOJIS;
+  filteredEmojis(): EmojiDef[] {
+    const q = this.emojiFilter().trim().toLowerCase();
+    return q ? EMOJIS.filter(e => e.name.includes(q)) : EMOJIS;
+  }
   nickColor = (nick: string) => nickColor(nick);
 
   private hub!: signalR.HubConnection;
@@ -59,12 +102,12 @@ export class ChatComponent implements OnInit, OnDestroy {
       .build();
 
     this.hub.on('ReceiveMessage', (nickname: string, text: string, sentAt: string, id?: number, replyTo?: ReplyRef | null) => {
-      this.messages.update(msgs => [...msgs, { id, nickname, text, sentAt, replyTo, color: nickColor(nickname) }]);
+      this.messages.update(msgs => [...msgs, withParts({ id, nickname, text, sentAt, replyTo, color: nickColor(nickname) })]);
       setTimeout(() => this.scrollToBottom(), 50);
     });
 
     this.hub.on('History', (history: ChatMsg[]) => {
-      this.messages.set(history.map(m => ({ ...m, color: nickColor(m.nickname) })));
+      this.messages.set(history.map(m => withParts({ ...m, color: nickColor(m.nickname) })));
       setTimeout(() => this.scrollToBottom(), 50);
     });
 
@@ -96,6 +139,28 @@ export class ChatComponent implements OnInit, OnDestroy {
     else await this.hub.invoke('SendMessage', n, t);
   }
 
+  toggleEmoji(): void {
+    this.emojiOpen.update(v => !v);
+    if (this.emojiOpen()) this.emojiFilter.set('');
+  }
+
+  /** Inserta :nombre: en la posición del cursor y deja el foco en el campo de texto. */
+  insertEmoji(e: EmojiDef): void {
+    const input = this.inputEl?.nativeElement;
+    const code = `:${e.name}:`;
+    const start = input?.selectionStart ?? this.text.length;
+    const end = input?.selectionEnd ?? this.text.length;
+    const next = this.text.slice(0, start) + code + this.text.slice(end);
+    if (next.length > 500) return;
+    this.text = next;
+    setTimeout(() => {
+      if (!input) return;
+      input.focus();
+      const pos = start + code.length;
+      input.setSelectionRange(pos, pos);
+    }, 0);
+  }
+
   startReply(msg: ChatMsg): void {
     if (!msg.id) return; // sin id (no se guardó en la base de datos) no se puede citar
     this.replyingTo.set(msg);
@@ -119,8 +184,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       this.send();
-    } else if (event.key === 'Escape' && this.replyingTo()) {
-      this.cancelReply();
+    } else if (event.key === 'Escape') {
+      if (this.emojiOpen()) this.emojiOpen.set(false);
+      else if (this.replyingTo()) this.cancelReply();
     }
   }
 

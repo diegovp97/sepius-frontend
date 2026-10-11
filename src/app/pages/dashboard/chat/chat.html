@@ -38,12 +38,12 @@
         <button type="button" class="chat__quote" (click)="goToOriginal(msg.replyTo.id)"
                 [attr.aria-label]="'Ir al mensaje de ' + msg.replyTo.nickname">
           <span class="chat__quote-nick" [style.color]="nickColor(msg.replyTo.nickname)">↩ {{ msg.replyTo.nickname }}</span>
-          <span class="chat__quote-text">{{ msg.replyTo.text }}</span>
+          <span class="chat__quote-text">@for (p of msg.replyTo.parts; track $index) {@if (p.emoji) {<img class="chat__emoji" [src]="p.emoji" [alt]="':' + p.name + ':'" loading="lazy">} @else {{{ p.text }}}}</span>
         </button>
       }
       <span class="chat__msg-nick" [style.color]="msg.color">{{ msg.nickname }}</span>
       <span class="chat__msg-sep">: </span>
-      <span class="chat__msg-text">{{ msg.text }}</span>
+      <span class="chat__msg-text">@for (p of msg.parts; track $index) {@if (p.emoji) {<img class="chat__emoji" [src]="p.emoji" [alt]="':' + p.name + ':'" [title]="':' + p.name + ':'" loading="lazy">} @else {{{ p.text }}}}</span>
       @if (msg.id) {
         <button type="button" class="chat__reply-btn" (click)="startReply(msg)"
                 [attr.aria-label]="'Responder a ' + msg.nickname" title="Responder">↩</button>
@@ -63,7 +63,25 @@
   </div>
 }
 
+@if (emojiOpen()) {
+  <div class="chat__emoji-panel" role="dialog" aria-label="Emojis">
+    <input class="chat__emoji-search" placeholder="Buscar emoji..." maxlength="30"
+           [value]="emojiFilter()" (input)="emojiFilter.set($any($event.target).value)" />
+    <div class="chat__emoji-grid">
+      @for (e of filteredEmojis(); track e.name) {
+        <button type="button" class="chat__emoji-item" (click)="insertEmoji(e)" [title]="':' + e.name + ':'">
+          <img [src]="e.url" [alt]="':' + e.name + ':'" loading="lazy">
+        </button>
+      } @empty {
+        <p class="chat__emoji-empty">Nada con ese nombre</p>
+      }
+    </div>
+  </div>
+}
+
 <div class="chat__form">
+  <button type="button" class="chat__emoji-btn" (click)="toggleEmoji()" [class.active]="emojiOpen()"
+          aria-label="Emojis" [attr.aria-expanded]="emojiOpen()">☺</button>
   <input
     #inputEl
     class="chat__input"
