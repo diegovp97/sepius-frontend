@@ -163,10 +163,12 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
         backBufferLength: 0,
-        // Más colchón sobre el borde live: el servidor a veces tarda 5-11 s en aceptar una conexión
-        // y con 16 s de margen un solo tirón vaciaba el buffer (cortes en móvil).
-        liveSyncDurationCount: 6,
-        liveMaxLatencyDurationCount: 12,
+        // Poco margen sobre el borde live (3 segmentos ≈ 12 s) para que el vídeo vaya lo más cerca posible del
+        // chat. Si se acumula retraso (tras un tirón de red), se recupera acelerando un poco (hasta x1,08)
+        // en lugar de saltar.
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 6,
+        maxLiveSyncPlaybackRate: 1.08,
         // Timeouts cortos con reintentos rápidos: una conexión perdida suele funcionar al reintentar
         // a los pocos segundos; esperar 15-30 s dejaba el vídeo parado.
         manifestLoadingTimeOut: 8000,
