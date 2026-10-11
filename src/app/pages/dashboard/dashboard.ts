@@ -8,7 +8,9 @@
 } from '@angular/core';
 import Hls from 'hls.js';
 import { environment } from '../../../environments/environment';
+import { RouterLink } from '@angular/router';
 import { ChatComponent } from './chat/chat';
+import { ClipCreateComponent } from './clip-create/clip-create';
 import { ChromecastService } from '../../services/chromecast.service';
 
 const API_BASE = environment.apiUrl;
@@ -16,7 +18,7 @@ const API_BASE = environment.apiUrl;
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [ChatComponent],
+  imports: [ChatComponent, ClipCreateComponent, RouterLink],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
@@ -36,6 +38,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   reconnectCountdown = signal(0);
   isAtLiveEdge = signal(true);
   needsInteraction = signal(false);
+  clipOpen = signal(false);
 
   @ViewChild('videoEl') videoRef!: ElementRef<HTMLVideoElement>;
 
@@ -386,6 +389,12 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }
     video.play().catch(() => {});
   }
+
+  /** Segundos que se va por detrás del borde live: el clip debe terminar donde el espectador está viendo. */
+  behindSeconds = (): number => {
+    const v = this.hls?.latency;
+    return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0;
+  };
 
   jumpToLive(): void {
     const video = this.videoRef?.nativeElement;

@@ -8,6 +8,14 @@ export const routes: Routes = [
       import('./pages/dashboard/dashboard').then(m => m.DashboardComponent),
   },
   {
+    path: 'clips',
+    loadComponent: () => import('./pages/clips/clips').then(m => m.ClipsComponent),
+  },
+  {
+    path: 'clips/:id',
+    loadComponent: () => import('./pages/clips/clips').then(m => m.ClipsComponent),
+  },
+  {
     path: 'youtube',
     canActivate: [authGuard],
     loadComponent: () =>

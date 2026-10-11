@@ -1,0 +1,48 @@
+<div class="clipdlg__backdrop" (click)="close()"></div>
+
+<div class="clipdlg" role="dialog" aria-modal="true" aria-label="Crear clip">
+  <button type="button" class="clipdlg__x" (click)="close()" aria-label="Cerrar">✕</button>
+
+  @if (clip(); as c) {
+    <h2 class="clipdlg__title">¡Clip creado!</h2>
+    <video class="clipdlg__video" [src]="clips.abs(c.videoUrl)" [poster]="clips.abs(c.thumbUrl)"
+           controls playsinline preload="metadata"></video>
+    <p class="clipdlg__name">{{ c.title }}</p>
+    <div class="clipdlg__link">
+      <input class="clipdlg__input" [value]="link()" readonly (focus)="$any($event.target).select()" />
+      <button type="button" class="clipdlg__btn clipdlg__btn--primary" (click)="copy()">
+        {{ copied() ? '¡Copiado!' : 'Copiar enlace' }}
+      </button>
+    </div>
+    <div class="clipdlg__actions">
+      <a class="clipdlg__btn" routerLink="/clips" (click)="close()">Ver todos los clips</a>
+      <button type="button" class="clipdlg__btn" (click)="close()">Cerrar</button>
+    </div>
+  } @else {
+    <h2 class="clipdlg__title">Crear un clip</h2>
+    <p class="clipdlg__hint">Se guardan los últimos segundos que acabas de ver. Puede verlo cualquiera con el enlace.</p>
+
+    <span class="clipdlg__label">Duración</span>
+    <div class="clipdlg__seconds" role="radiogroup" aria-label="Duración del clip">
+      @for (s of options; track s) {
+        <button type="button" class="clipdlg__chip" role="radio" [attr.aria-checked]="seconds() === s"
+                [class.on]="seconds() === s" (click)="seconds.set(s)">{{ s }} s</button>
+      }
+    </div>
+
+    <label class="clipdlg__label" for="clip-title">Título (opcional)</label>
+    <input id="clip-title" class="clipdlg__input" [(ngModel)]="title" maxlength="80"
+           placeholder="Ponle un nombre a tu clip" (keydown.enter)="create()" />
+
+    @if (error()) {
+      <p class="clipdlg__error" role="alert">{{ error() }}</p>
+    }
+
+    <div class="clipdlg__actions">
+      <button type="button" class="clipdlg__btn" (click)="close()" [disabled]="creating()">Cancelar</button>
+      <button type="button" class="clipdlg__btn clipdlg__btn--primary" (click)="create()" [disabled]="creating()">
+        {{ creating() ? 'Creando…' : 'Crear clip' }}
+      </button>
+    </div>
+  }
+</div>

@@ -18,6 +18,15 @@
           {{ cast.isCasting() ? 'En TV' : 'Cast' }}
         </button>
       }
+      @if (status() === 'playing') {
+        <button class="dashboard__btn dashboard__btn--clip" (click)="clipOpen.set(true)" title="Crear un clip de lo último que has visto">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>
+          </svg>
+          Clip
+        </button>
+      }
+      <a class="dashboard__btn" routerLink="/clips">Clips</a>
       <button class="dashboard__btn" (click)="reconnectNow()"
         [disabled]="status() === 'loading'">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -73,6 +82,10 @@
         </div>
       }
     </div>
+
+    @if (clipOpen()) {
+      <app-clip-create [channel]="channel" [behindSeconds]="behindSeconds" (closed)="clipOpen.set(false)" />
+    }
 
     <!-- Chat personalizado con SignalR -->
     <aside class="dashboard__chat">

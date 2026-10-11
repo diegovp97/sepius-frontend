@@ -1,0 +1,51 @@
+<div class="clips">
+  <header class="clips__header">
+    <a class="brand" routerLink="/" aria-label="Zona Sepia">
+      <span class="brand__mark">Z</span>
+      <span class="brand__name">Zona<span>Sepia</span></span>
+    </a>
+    <h1 class="clips__h1">Clips</h1>
+    <a class="clips__back" routerLink="/">← Volver al directo</a>
+  </header>
+
+  @if (current(); as c) {
+    <section class="clips__current">
+      <video class="clips__video" [src]="api.abs(c.videoUrl)" [poster]="api.abs(c.thumbUrl)"
+             controls autoplay playsinline></video>
+      <div class="clips__meta">
+        <div>
+          <h2 class="clips__title">{{ c.title }}</h2>
+          <p class="clips__sub">Clip de {{ c.nickname }} · {{ c.channel }} · {{ ago(c.createdAt) }}</p>
+        </div>
+        <button type="button" class="clips__btn" (click)="copy(c)">Copiar enlace</button>
+      </div>
+    </section>
+  } @else if (notFound()) {
+    <p class="clips__empty">Este clip no existe o ya se ha borrado.</p>
+  }
+
+  @if (loading()) {
+    <p class="clips__empty">Cargando clips…</p>
+  } @else if (failed() && clips().length === 0) {
+    <p class="clips__empty">No se pudieron cargar los clips. Inténtalo más tarde.</p>
+  } @else if (clips().length === 0) {
+    <p class="clips__empty">Aún no hay clips. Pulsa «Clip» mientras ves el directo para crear el primero.</p>
+  } @else {
+    <ul class="clips__grid">
+      @for (c of clips(); track c.id) {
+        <li>
+          <a class="clip" [routerLink]="['/clips', c.id]" [class.clip--active]="current()?.id === c.id">
+            <span class="clip__thumb">
+              @if (c.thumbUrl) {
+                <img [src]="api.abs(c.thumbUrl)" [alt]="c.title" loading="lazy" />
+              }
+              <span class="clip__dur">{{ duration(c.durationSeconds) }}</span>
+            </span>
+            <span class="clip__title">{{ c.title }}</span>
+            <span class="clip__sub">{{ c.nickname }} · {{ ago(c.createdAt) }}</span>
+          </a>
+        </li>
+      }
+    </ul>
+  }
+</div>

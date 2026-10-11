@@ -393,3 +393,16 @@
     border-radius: var(--radius);
   }
 }
+
+/* Botón «Clip»: se destaca con el color de acento; «Clips» es un enlace con el mismo aspecto que los botones. */
+.dashboard__btn--clip {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: inset 0 0 0 1px rgba(227, 163, 92, 0.4);
+}
+.dashboard__btn--clip:hover:not(:disabled) {
+  background: rgba(227, 163, 92, 0.24);
+}
+a.dashboard__btn {
+  text-decoration: none;
+}
