@@ -154,6 +154,23 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }, 2000);
   }
 
+  /**
+   * Recuperación tras un atasco o un error de red. Saltar siempre al borde del directo vacía el búfer
+   * y provoca el siguiente corte (bucle), así que solo se salta si el retraso es grande; si no, se
+   * reanuda la carga desde la posición actual.
+   */
+  private resync(video: HTMLVideoElement, why: string): void {
+    const latency = (this.hls as any)?.latency as number | undefined;
+    if (latency !== undefined && latency > 25 && Number.isFinite(video.duration)) {
+      console.warn(`[hls] ${why}: retraso ${latency.toFixed(0)} s, saltando al live edge`);
+      video.currentTime = video.duration - 0.5;
+      this.hls?.startLoad(-1);
+    } else {
+      console.warn(`[hls] ${why}: reanudando sin saltar`);
+      this.hls?.startLoad(video.currentTime);
+    }
+  }
+
   private mountHls(hlsUrl: string): void {
     const video = this.videoRef.nativeElement;
 
@@ -199,10 +216,8 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
       this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
         this.log('[sepius] MANIFEST_PARSED → reproduciendo desde el live edge.');
-        // Saltar al borde live antes de reproducir
-        if (Number.isFinite(video.duration)) {
-          video.currentTime = video.duration;
-        }
+        // No forzar el salto al final: hls.js ya arranca a liveSyncDurationCount segmentos del borde,
+        // y saltar al último segmento dejaba el búfer vacío (el primer bajón de red cortaba el vídeo).
         this.status.set('playing');
         this.reconnectAttempts = 0;
         this.isAtLiveEdge.set(true);
@@ -219,13 +234,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       const resetStallTimer = () => {
         if (this.stallTimer) clearTimeout(this.stallTimer);
         this.stallTimer = setTimeout(() => {
-          if (!video.paused && this.hls) {
-            console.warn('[hls] Stall detectado, saltando al live edge');
-            if (Number.isFinite(video.duration)) {
-              video.currentTime = video.duration - 0.5;
-            }
-            this.hls.startLoad(-1);
-          }
+          if (!video.paused && this.hls) this.resync(video, 'Stall detectado');
         }, this.STALL_TIMEOUT_MS);
       };
 
@@ -251,11 +260,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         });
         // Errores no fatales de fragmento: saltar al live edge en lugar de reintentar el frag roto
         if (!data.fatal && data.details?.startsWith('frag')) {
-          console.warn('[hls] Frag error (non-fatal), saltando al live edge:', data.details);
-          if (Number.isFinite(video.duration)) {
-            video.currentTime = video.duration - 0.5;
-          }
-          this.hls?.startLoad(-1);
+          this.resync(video, `Frag error (non-fatal) ${data.details}`);
           return;
         }
 
@@ -263,11 +268,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            console.warn('[hls] Network error fatal, saltando al live edge:', data.details);
-            if (Number.isFinite(video.duration)) {
-              video.currentTime = video.duration - 0.5;
-            }
-            this.hls?.startLoad(-1);
+            this.resync(video, `Network error fatal ${data.details}`);
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
             if (!mediaRecoveryAttempted) {
