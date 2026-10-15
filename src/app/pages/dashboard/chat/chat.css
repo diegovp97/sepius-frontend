@@ -260,29 +260,59 @@
   transition: background 0.4s;
 }
 
+/* Un mensaje que responde a otro se ve como una tarjeta con el color del autor citado. */
+.chat__msg--reply {
+  --reply-color: var(--accent);
+  margin: 4px 0;
+  padding: 7px 10px 7px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--reply-color) 9%, transparent);
+  box-shadow: inset 3px 0 0 var(--reply-color);
+}
+.chat__msg--reply:hover {
+  background: color-mix(in srgb, var(--reply-color) 14%, transparent);
+}
+/* Si te responden a ti, destaca más. */
+.chat__msg--to-me {
+  background: color-mix(in srgb, var(--reply-color) 18%, transparent);
+  box-shadow: inset 3px 0 0 var(--reply-color), 0 0 0 1px color-mix(in srgb, var(--reply-color) 45%, transparent);
+}
+.chat__badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--reply-color);
+  color: #14100a;
+  font: 800 0.62rem var(--font);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
 .chat__quote {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  max-width: 100%;
-  margin: 0 0 3px;
-  padding: 2px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 5px;
+  padding: 4px 8px;
   border: 0;
-  border-left: 2px solid var(--border-strong);
-  border-radius: 4px;
-  background: rgba(255, 233, 205, 0.04);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
   color: var(--muted);
-  font: 400 0.76rem var(--font);
+  font: 400 0.78rem var(--font);
   text-align: left;
   cursor: pointer;
   overflow: hidden;
 }
 .chat__quote:hover {
-  background: rgba(255, 233, 205, 0.09);
+  background: rgba(0, 0, 0, 0.4);
 }
 .chat__quote-nick {
   flex-shrink: 0;
-  font-weight: 700;
+  font-weight: 800;
 }
 .chat__quote-text {
   min-width: 0;
@@ -323,12 +353,14 @@
 }
 
 .chat__replying {
+  --reply-color: var(--accent);
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 7px 12px;
   border-top: 1px solid var(--border);
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--reply-color) 12%, var(--surface-2));
+  box-shadow: inset 3px 0 0 var(--reply-color);
   font-size: 0.78rem;
   color: var(--muted);
   flex-shrink: 0;

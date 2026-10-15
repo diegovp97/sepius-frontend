@@ -139,6 +139,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     else await this.hub.invoke('SendMessage', n, t);
   }
 
+  /** ¿Es una respuesta a un mensaje mío? (mismo nick; no hay cuentas, así que es lo mejor que se puede saber) */
+  isReplyToMe(msg: ChatMsg): boolean {
+    const me = this.nickname().trim().toLowerCase();
+    return !!me && !!msg.replyTo && msg.replyTo.nickname.trim().toLowerCase() === me
+      && msg.nickname.trim().toLowerCase() !== me;
+  }
+
   toggleEmoji(): void {
     this.emojiOpen.update(v => !v);
     if (this.emojiOpen()) this.emojiFilter.set('');

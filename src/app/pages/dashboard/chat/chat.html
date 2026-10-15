@@ -33,13 +33,19 @@
 
 <div class="chat__messages" #messagesEl>
   @for (msg of messages(); track msg.id ?? (msg.sentAt + msg.nickname)) {
-    <div class="chat__msg" [attr.data-msg-id]="msg.id">
+    <div class="chat__msg" [attr.data-msg-id]="msg.id"
+         [class.chat__msg--reply]="!!msg.replyTo"
+         [class.chat__msg--to-me]="isReplyToMe(msg)"
+         [style.--reply-color]="msg.replyTo ? nickColor(msg.replyTo.nickname) : null">
       @if (msg.replyTo) {
         <button type="button" class="chat__quote" (click)="goToOriginal(msg.replyTo.id)"
                 [attr.aria-label]="'Ir al mensaje de ' + msg.replyTo.nickname">
           <span class="chat__quote-nick" [style.color]="nickColor(msg.replyTo.nickname)">↩ {{ msg.replyTo.nickname }}</span>
           <span class="chat__quote-text">@for (p of msg.replyTo.parts; track $index) {@if (p.emoji) {<img class="chat__emoji" [src]="p.emoji" [alt]="':' + p.name + ':'" loading="lazy">} @else {{{ p.text }}}}</span>
         </button>
+      }
+      @if (isReplyToMe(msg)) {
+        <span class="chat__badge">te responde</span>
       }
       <span class="chat__msg-nick" [style.color]="msg.color">{{ msg.nickname }}</span>
       <span class="chat__msg-sep">: </span>
@@ -56,9 +62,9 @@
 </div>
 
 @if (replyingTo(); as r) {
-  <div class="chat__replying">
+  <div class="chat__replying" [style.--reply-color]="nickColor(r.nickname)">
     <span class="chat__replying-label">Respondiendo a <b [style.color]="nickColor(r.nickname)">{{ r.nickname }}</b></span>
-    <span class="chat__replying-text">{{ r.text }}</span>
+    <span class="chat__replying-text">@for (p of r.parts; track $index) {@if (p.emoji) {<img class="chat__emoji" [src]="p.emoji" [alt]="':' + p.name + ':'" loading="lazy">} @else {{{ p.text }}}}</span>
     <button type="button" class="chat__replying-close" (click)="cancelReply()" aria-label="Cancelar respuesta">✕</button>
   </div>
 }
