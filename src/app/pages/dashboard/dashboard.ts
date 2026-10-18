@@ -32,6 +32,27 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     return c && /^[a-z0-9_]{1,25}$/.test(c) ? c : 'elttblue';
   }
   private currentHlsUrl = '';
+  /** URL del HLS original (720p60); la ligera cuelga de ella en /low/. */
+  private sourceUrl = '';
+
+  // ── Calidad ──────────────────────────────────────────────────────────────
+  // Auto = ligera en móvil o con conexión lenta; Original = lo que emite el streamer (~7 Mbps en Twitch/Kick).
+  quality = signal<'auto' | 'source' | 'low'>(DashboardComponent.savedQuality());
+  effectiveQuality = signal<'source' | 'low'>('source');
+  lowAvailable = signal(false);
+  qualityMenuOpen = signal(false);
+  qualityNotice = signal('');
+  private autoDowngraded = false;
+  private stallTimes: number[] = [];
+
+  private static savedQuality(): 'auto' | 'source' | 'low' {
+    try {
+      const v = localStorage.getItem('sepius-quality');
+      return v === 'source' || v === 'low' ? v : 'auto';
+    } catch {
+      return 'auto';
+    }
+  }
 
   status = signal<'idle' | 'loading' | 'playing' | 'error'>('idle');
   errorMsg = signal('');
@@ -96,7 +117,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         const fullUrl = rawUrl;
         this.currentHlsUrl = fullUrl;
         this.log(`[sepius] HLS listo en ${data.platform}. Montando: ${fullUrl}`);
-        this.mountHls(fullUrl);
+        void this.mountChosen(fullUrl);
       } else {
         this.log(`[sepius] HLS aún no listo (platform=${data.platform}). Esperando...`);
         this.pollUntilReady(data.hlsUrl);
@@ -130,7 +151,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
           const fullUrl = rawUrl;
           this.currentHlsUrl = fullUrl;
           this.log(`[sepius] HLS listo tras ${attempts} intento(s). Montando.`);
-          this.mountHls(fullUrl);
+          void this.mountChosen(fullUrl);
         } else if (!data.isLive) {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
@@ -169,6 +190,86 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       console.warn(`[hls] ${why}: reanudando sin saltar`);
       this.hls?.startLoad(video.currentTime);
     }
+  }
+
+  // ── Elección de calidad ──────────────────────────────────────────────────
+
+  private static lowUrl(sourceUrl: string): string {
+    return sourceUrl.replace(/\/index\.m3u8(\?.*)?$/, '/low/index.m3u8$1');
+  }
+
+  /** ¿El dispositivo/conexión pide la versión ligera? Móvil, ahorro de datos o red lenta. */
+  private prefersLight(): boolean {
+    const conn = (navigator as any).connection as
+      { saveData?: boolean; effectiveType?: string; downlink?: number } | undefined;
+    if (conn?.saveData) return true;
+    if (conn?.effectiveType && ['slow-2g', '2g', '3g'].includes(conn.effectiveType)) return true;
+    if (typeof conn?.downlink === 'number' && conn.downlink > 0 && conn.downlink < 5) return true;
+    const mobile = window.matchMedia?.('(pointer: coarse)').matches && window.innerWidth < 900;
+    return !!mobile;
+  }
+
+  private async probe(url: string): Promise<boolean> {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 4000);
+      const res = await fetch(url, { method: 'HEAD', cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(t);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Decide original o ligera y monta el reproductor. Si la ligera no existe (Starvios, o aún no está), usa el original. */
+  private async mountChosen(sourceUrl: string): Promise<void> {
+    this.sourceUrl = sourceUrl;
+    const run = this.startRun;
+
+    const lowUrl = DashboardComponent.lowUrl(sourceUrl);
+    const lowOk = this.platform() !== 'starvios' && (await this.probe(lowUrl));
+    if (run !== this.startRun) return; // llegó una orden más reciente mientras se comprobaba
+    this.lowAvailable.set(lowOk);
+
+    const q = this.quality();
+    const wantLow = q === 'low' || (q === 'auto' && (this.autoDowngraded || this.prefersLight()));
+    const useLow = wantLow && lowOk;
+
+    this.effectiveQuality.set(useLow ? 'low' : 'source');
+    this.currentHlsUrl = useLow ? lowUrl : sourceUrl;
+    this.log(`[sepius] calidad=${q} → ${useLow ? 'ligera' : 'original'}: ${this.currentHlsUrl}`);
+    this.mountHls(this.currentHlsUrl);
+  }
+
+  setQuality(q: 'auto' | 'source' | 'low'): void {
+    this.qualityMenuOpen.set(false);
+    this.autoDowngraded = false;
+    this.qualityNotice.set('');
+    try { localStorage.setItem('sepius-quality', q); } catch { /* sin almacenamiento: no se recuerda */ }
+    this.quality.set(q);
+    this.remount();
+  }
+
+  /** Vuelve a montar el reproductor con la calidad elegida (sin pedir otra vez el estado al servidor). */
+  private remount(): void {
+    if (!this.sourceUrl) return;
+    this.stopHls();
+    this.status.set('loading');
+    void this.mountChosen(this.sourceUrl);
+  }
+
+  /** Varios atascos seguidos con el original en «auto»: se pasa a la ligera y se avisa. */
+  private noteStall(): void {
+    if (this.quality() !== 'auto' || this.effectiveQuality() !== 'source' || !this.lowAvailable()) return;
+    const now = Date.now();
+    this.stallTimes = [...this.stallTimes.filter(t => now - t < 60_000), now];
+    if (this.stallTimes.length < 3) return;
+
+    this.stallTimes = [];
+    this.autoDowngraded = true;
+    this.qualityNotice.set('Tu conexión va justa: he cambiado a calidad ligera. Puedes elegirla en «Calidad».');
+    setTimeout(() => this.qualityNotice.set(''), 9000);
+    this.remount();
   }
 
   private mountHls(hlsUrl: string): void {
@@ -239,6 +340,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       };
 
       this.addVideoListener(video, 'waiting', resetStallTimer);
+      this.addVideoListener(video, 'waiting', () => this.noteStall());
       this.addVideoListener(video, 'stalled', resetStallTimer);
       this.addVideoListener(video, 'playing', () => {
         if (this.stallTimer) clearTimeout(this.stallTimer);
@@ -416,8 +518,8 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.cast.stopCasting();
       return;
     }
-    if (this.currentHlsUrl) {
-      this.cast.castHls(this.currentHlsUrl, `${this.channel} - ${this.platform() ?? 'live'}`);
+    if (this.sourceUrl || this.currentHlsUrl) {
+      this.cast.castHls(this.sourceUrl || this.currentHlsUrl, `${this.channel} - ${this.platform() ?? 'live'}`);
     }
   }
 

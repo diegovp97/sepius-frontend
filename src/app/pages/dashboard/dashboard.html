@@ -18,6 +18,34 @@
           {{ cast.isCasting() ? 'En TV' : 'Cast' }}
         </button>
       }
+      @if (lowAvailable() && status() === 'playing') {
+        <div class="quality">
+          <button class="dashboard__btn" (click)="qualityMenuOpen.set(!qualityMenuOpen())"
+                  [attr.aria-expanded]="qualityMenuOpen()" aria-haspopup="menu">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
+            </svg>
+            {{ effectiveQuality() === 'low' ? 'Ligera' : 'Original' }}
+          </button>
+          @if (qualityMenuOpen()) {
+            <div class="quality__backdrop" (click)="qualityMenuOpen.set(false)"></div>
+            <div class="quality__menu" role="menu">
+              <button type="button" role="menuitemradio" [attr.aria-checked]="quality() === 'auto'"
+                      [class.on]="quality() === 'auto'" (click)="setQuality('auto')">
+                <b>Automática</b><small>Ligera en móvil o si la conexión va justa</small>
+              </button>
+              <button type="button" role="menuitemradio" [attr.aria-checked]="quality() === 'source'"
+                      [class.on]="quality() === 'source'" (click)="setQuality('source')">
+                <b>Original</b><small>720p a 60 fps · gasta unos 3 GB por hora</small>
+              </button>
+              <button type="button" role="menuitemradio" [attr.aria-checked]="quality() === 'low'"
+                      [class.on]="quality() === 'low'" (click)="setQuality('low')">
+                <b>Ligera</b><small>480p a 30 fps · unos 0,6 GB por hora</small>
+              </button>
+            </div>
+          }
+        </div>
+      }
       @if (status() === 'playing') {
         <button class="dashboard__btn dashboard__btn--clip" (click)="clipOpen.set(true)" title="Crear un clip de lo último que has visto">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -48,6 +76,10 @@
         playsinline
         muted="false">
       </video>
+
+      @if (qualityNotice()) {
+        <div class="dashboard__notice" role="status">{{ qualityNotice() }}</div>
+      }
 
       <!-- Overlay de carga -->
       @if (status() === 'loading') {
