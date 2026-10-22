@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import * as signalR from '@microsoft/signalr';
 import { environment } from '../../../../environments/environment';
 import { EMOJIS, EmojiDef } from './emoji-list';
+import { authFetch, getToken } from '../../../services/auth';
 
 /** Trozo de un mensaje: texto normal o un emoji :nombre: ya resuelto a su imagen. */
 interface Part {
@@ -84,6 +85,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   nickSaved = signal(!!localStorage.getItem('chat-nickname'));
   editingNick = signal(false);
   replyingTo = signal<ChatMsg | null>(null);
+  /** Hay sesión de admin (se inicia en /mod): muestra el botón de borrar. El permiso real lo valida el servidor con el JWT. */
+  canModerate = signal(!!getToken());
   emojiOpen = signal(false);
   emojiFilter = signal('');
   readonly emojis = EMOJIS;
@@ -95,6 +98,29 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   private hub!: signalR.HubConnection;
 
+  async deleteMessage(m: ChatMsg): Promise<void> {
+    if (!m.id || !confirm(`¿Borrar el mensaje de ${m.nickname}?\n\n"${m.text.slice(0, 120)}"`)) return;
+    try {
+      const res = await authFetch(`${environment.apiUrl}/api/chat/messages/${m.id}`, { method: 'DELETE' });
+      if (res.ok || res.status === 404) this.removeMessage(m.id); // 404: ya no existía
+      else alert('No se pudo borrar el mensaje.');
+    } catch (e) {
+      this.canModerate.set(false); // sesión caducada: authFetch ya borró el token
+      alert(e instanceof Error ? e.message : 'No se pudo borrar el mensaje.');
+    }
+  }
+
+  /** Quita el mensaje de la lista y sustituye su cita en las respuestas (el servidor hace lo mismo en la base de datos). */
+  private removeMessage(id: number): void {
+    const gone = '[mensaje eliminado]';
+    this.messages.update(msgs => msgs
+      .filter(x => x.id !== id)
+      .map(x => x.replyTo?.id === id
+        ? { ...x, replyTo: { ...x.replyTo, nickname: '—', text: gone, parts: [{ text: gone }] } }
+        : x));
+    if (this.replyingTo()?.id === id) this.replyingTo.set(null);
+  }
+
   ngOnInit(): void {
     this.hub = new signalR.HubConnectionBuilder()
       .withUrl(`${environment.apiUrl}/hubs/chat`)
@@ -105,6 +131,8 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.messages.update(msgs => [...msgs, withParts({ id, nickname, text, sentAt, replyTo, color: nickColor(nickname) })]);
       setTimeout(() => this.scrollToBottom(), 50);
     });
+
+    this.hub.on('MessageDeleted', (id: number) => this.removeMessage(id));
 
     this.hub.on('History', (history: ChatMsg[]) => {
       this.messages.set(history.map(m => withParts({ ...m, color: nickColor(m.nickname) })));

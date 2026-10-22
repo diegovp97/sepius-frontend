@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
+import { modGuard } from './guards/mod.guard';
 
 export const routes: Routes = [
   {
@@ -14,6 +15,12 @@ export const routes: Routes = [
   {
     path: 'clips/:id',
     loadComponent: () => import('./pages/clips/clips').then(m => m.ClipsComponent),
+  },
+  {
+    // Inicio de sesión de moderación: pide la contraseña y vuelve al directo.
+    path: 'mod',
+    canActivate: [modGuard],
+    loadComponent: () => import('./pages/dashboard/dashboard').then(m => m.DashboardComponent),
   },
   {
     path: 'youtube',

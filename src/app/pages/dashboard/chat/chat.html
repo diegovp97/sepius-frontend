@@ -54,6 +54,10 @@
         <button type="button" class="chat__reply-btn" (click)="startReply(msg)"
                 [attr.aria-label]="'Responder a ' + msg.nickname" title="Responder">↩</button>
       }
+      @if (canModerate() && msg.id) {
+        <button type="button" class="chat__reply-btn chat__del-btn" (click)="deleteMessage(msg)"
+                [attr.aria-label]="'Borrar el mensaje de ' + msg.nickname" title="Borrar mensaje">🗑</button>
+      }
     </div>
   }
   @if (messages().length === 0 && connected()) {

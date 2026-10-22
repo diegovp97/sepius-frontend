@@ -476,3 +476,11 @@
   font-size: 0.8rem;
   color: var(--faint);
 }
+
+/* Botón de borrar (solo moderación): junto al de responder, a su izquierda. */
+.chat__del-btn {
+  right: 34px;
+}
+.chat__del-btn:hover {
+  color: #ff6b6b;
+}
