@@ -43,3 +43,56 @@ export function withToken(url: string): string {
   const token = getToken();
   return token ? `${url}${url.includes('?') ? '&' : '?'}access_token=${encodeURIComponent(token)}` : url;
 }
+
+// ── Cuentas ────────────────────────────────────────────────────────────────
+
+export type Role = 'user' | 'moderator' | 'admin';
+export interface SessionUser { name: string; role: Role; }
+
+const CLAIM_NAME = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
+const CLAIM_ROLE = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
+
+/** Usuario de la sesión actual (leído del JWT, solo para mostrar la interfaz: el servidor valida el permiso real). */
+export function getUser(): SessionUser | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const name = p[CLAIM_NAME] ?? p['unique_name'] ?? p['name'];
+    const role = (p[CLAIM_ROLE] ?? p['role'] ?? 'user') as Role;
+    return name ? { name, role } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isStaff(user: SessionUser | null): boolean {
+  return user?.role === 'admin' || user?.role === 'moderator';
+}
+
+export function logout(): void {
+  clearToken();
+}
+
+/** Inicia sesión o crea la cuenta. Devuelve null si todo fue bien, o el mensaje de error para mostrar. */
+export async function authenticate(
+  apiUrl: string, mode: 'login' | 'register', username: string, password: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${apiUrl}/api/auth/${mode === 'login' ? 'verify' : 'register'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username.trim(), password }),
+    });
+    if (res.ok) {
+      setToken((await res.json()).token);
+      return null;
+    }
+    if (res.status === 429) return 'Demasiados intentos. Espera unos minutos.';
+    if (res.status === 401) return 'Usuario o contraseña incorrectos.';
+    const body = await res.json().catch(() => null);
+    return body?.error ?? 'No se pudo completar la operación.';
+  } catch {
+    return 'Error de conexión con el servidor.';
+  }
+}

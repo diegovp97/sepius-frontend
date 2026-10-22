@@ -484,3 +484,27 @@
 .chat__del-btn:hover {
   color: #ff6b6b;
 }
+
+/* Cuentas: pestañas, avisos, insignia de moderación y barra para visitantes. */
+.chat__auth-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.chat__auth-tabs button {
+  flex: 1; padding: 6px 8px; border: 1px solid var(--surface-3); border-radius: 8px;
+  background: transparent; color: var(--muted); font: 600 0.82rem var(--font); cursor: pointer;
+}
+.chat__auth-tabs button.on { background: var(--surface-3); color: var(--text); }
+.chat__nick-card .chat__nick-input + .chat__nick-input { margin-top: 8px; }
+.chat__auth-hint { margin: 8px 0 0; color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+.chat__auth-error { margin: 8px 0 0; color: #ff6b6b; font-size: 0.8rem; }
+.chat__role {
+  margin-left: 6px; padding: 1px 5px; border-radius: 4px; vertical-align: middle;
+  background: var(--accent); color: #1a1208; font: 800 0.62rem var(--font); letter-spacing: 0.04em;
+}
+.chat__logout {
+  margin-left: auto; padding: 3px 9px; border: 1px solid var(--surface-3); border-radius: 6px;
+  background: transparent; color: var(--muted); font: 600 0.75rem var(--font); cursor: pointer;
+}
+.chat__logout:hover { color: var(--text); }
+.chat__login-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-top: 1px solid var(--surface-3); color: var(--muted); font-size: 0.82rem;
+}

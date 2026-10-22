@@ -1,34 +1,38 @@
-@if (!nickSaved() || editingNick()) {
-  <div class="chat__nick-overlay">
-    <div class="chat__nick-card">
-      <p class="chat__nick-title">{{ editingNick() ? 'Cambiar nombre' : 'Elige tu nombre' }}</p>
-      <div class="chat__nick-preview" [style.color]="nickColor(nickname() || 'Preview')">
-        {{ nickname() || 'Preview' }}
+@if (authOpen()) {
+  <div class="chat__nick-overlay" (click)="closeAuth()">
+    <form class="chat__nick-card" (click)="$event.stopPropagation()" (ngSubmit)="submitAuth()">
+      <p class="chat__nick-title">{{ authMode() === 'login' ? 'Entrar' : 'Crear cuenta' }}</p>
+      <div class="chat__auth-tabs">
+        <button type="button" [class.on]="authMode() === 'login'" (click)="openAuth('login')">Entrar</button>
+        <button type="button" [class.on]="authMode() === 'register'" (click)="openAuth('register')">Crear cuenta</button>
       </div>
-      <input
-        class="chat__nick-input"
-        [(ngModel)]="nickname"
-        placeholder="Tu nickname"
-        maxlength="32"
-        (keydown.enter)="saveNickname()" />
+      <input class="chat__nick-input" name="u" [(ngModel)]="authUser" placeholder="Usuario" maxlength="20"
+             autocomplete="username" autocapitalize="off" spellcheck="false" />
+      <input class="chat__nick-input" name="p" type="password" [(ngModel)]="authPass" placeholder="Contraseña"
+             maxlength="128" [attr.autocomplete]="authMode() === 'login' ? 'current-password' : 'new-password'" />
+      @if (authMode() === 'register') {
+        <p class="chat__auth-hint">De 3 a 20 caracteres (letras, números o _). Contraseña de 8 o más. No pedimos email.</p>
+      }
+      @if (authError()) { <p class="chat__auth-error" role="alert">{{ authError() }}</p> }
       <div class="chat__nick-actions">
-        <button class="chat__btn chat__btn--primary" (click)="saveNickname()">
-          {{ editingNick() ? 'Guardar' : 'Entrar' }}
+        <button class="chat__btn chat__btn--primary" type="submit" [disabled]="authBusy() || !authUser.trim() || !authPass">
+          {{ authBusy() ? '...' : (authMode() === 'login' ? 'Entrar' : 'Crear cuenta') }}
         </button>
-        @if (editingNick()) {
-          <button class="chat__btn chat__btn--ghost" (click)="editingNick.set(false)">Cancelar</button>
-        }
+        <button class="chat__btn chat__btn--ghost" type="button" (click)="closeAuth()">Cancelar</button>
       </div>
-    </div>
+    </form>
   </div>
 }
 
 <div class="chat__header">
   <span class="chat__status-dot" [class.online]="connected()"></span>
   <span class="chat__status-text">{{ connected() ? 'En línea' : 'Reconectando...' }}</span>
-  <button class="chat__nick-btn" [style.color]="nickColor(nickname())" (click)="editingNick.set(true)">
-    {{ nickname() || '...' }} ✎
-  </button>
+  @if (user(); as u) {
+    <span class="chat__nick-btn" [style.color]="nickColor(u.name)">{{ u.name }}@if (u.role !== 'user') { <span class="chat__role" [attr.title]="u.role === 'admin' ? 'Administrador' : 'Moderador'">{{ u.role === 'admin' ? 'ADMIN' : 'MOD' }}</span> }</span>
+    <button type="button" class="chat__logout" (click)="logout()">Salir</button>
+  } @else {
+    <button type="button" class="chat__nick-btn" (click)="openAuth()">Entrar / Crear cuenta</button>
+  }
 </div>
 
 <div class="chat__messages" #messagesEl>
@@ -47,7 +51,7 @@
       @if (isReplyToMe(msg)) {
         <span class="chat__badge">te responde</span>
       }
-      <span class="chat__msg-nick" [style.color]="msg.color">{{ msg.nickname }}</span>
+      <span class="chat__msg-nick" [style.color]="msg.color">{{ msg.nickname }}</span>@if (msg.role === 'admin' || msg.role === 'moderator') {<span class="chat__role" [attr.title]="msg.role === 'admin' ? 'Administrador' : 'Moderador'">{{ msg.role === 'admin' ? 'ADMIN' : 'MOD' }}</span>}
       <span class="chat__msg-sep">: </span>
       <span class="chat__msg-text">@for (p of msg.parts; track $index) {@if (p.emoji) {<img class="chat__emoji" [src]="p.emoji" [alt]="':' + p.name + ':'" [title]="':' + p.name + ':'" loading="lazy">} @else {{{ p.text }}}}</span>
       @if (msg.id) {
@@ -89,16 +93,23 @@
   </div>
 }
 
-<div class="chat__form">
-  <button type="button" class="chat__emoji-btn" (click)="toggleEmoji()" [class.active]="emojiOpen()"
-          aria-label="Emojis" [attr.aria-expanded]="emojiOpen()">☺</button>
-  <input
-    #inputEl
-    class="chat__input"
-    [(ngModel)]="text"
-    placeholder="Escribe un mensaje..."
-    maxlength="500"
-    [disabled]="!connected()"
-    (keydown)="onKeydown($event)" />
-  <button class="chat__send-btn" (click)="send()" [disabled]="!connected() || !text.trim()">↑</button>
-</div>
+@if (!user()) {
+  <div class="chat__login-bar">
+    <span>Para escribir en el chat necesitas una cuenta.</span>
+    <button type="button" class="chat__btn chat__btn--primary" (click)="openAuth()">Entrar</button>
+  </div>
+} @else {
+  <div class="chat__form">
+    <button type="button" class="chat__emoji-btn" (click)="toggleEmoji()" [class.active]="emojiOpen()"
+            aria-label="Emojis" [attr.aria-expanded]="emojiOpen()">☺</button>
+    <input
+      #inputEl
+      class="chat__input"
+      [(ngModel)]="text"
+      placeholder="Escribe un mensaje..."
+      maxlength="500"
+      [disabled]="!connected()"
+      (keydown)="onKeydown($event)" />
+    <button class="chat__send-btn" (click)="send()" [disabled]="!connected() || !text.trim()">↑</button>
+  </div>
+}

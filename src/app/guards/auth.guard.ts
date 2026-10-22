@@ -1,12 +1,17 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { getToken, setToken } from '../services/auth';
+import { getToken, getUser, setToken } from '../services/auth';
 
+/** Panel de grabaciones/YouTube: solo para la cuenta de administrador. */
 export const authGuard: CanActivateFn = async () => {
   const router = inject(Router);
 
-  if (getToken()) return true;
+  if (getToken()) {
+    if (getUser()?.role === 'admin') return true;
+    alert('Esta sección es solo para el administrador.');
+    return router.createUrlTree(['/']);
+  }
 
   const username = prompt('Usuario:');
   if (!username) return router.createUrlTree(['/']);
@@ -23,6 +28,10 @@ export const authGuard: CanActivateFn = async () => {
 
     if (res.ok) {
       const data = await res.json();
+      if (data.role !== 'admin') {
+        alert('Esta sección es solo para el administrador.');
+        return router.createUrlTree(['/']);
+      }
       setToken(data.token);
       return true;
     }

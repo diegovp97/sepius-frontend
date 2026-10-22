@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import * as signalR from '@microsoft/signalr';
 import { environment } from '../../../../environments/environment';
 import { EMOJIS, EmojiDef } from './emoji-list';
-import { authFetch, getToken } from '../../../services/auth';
+import { authenticate, authFetch, getToken, getUser, isStaff, logout, SessionUser } from '../../../services/auth';
 
 /** Trozo de un mensaje: texto normal o un emoji :nombre: ya resuelto a su imagen. */
 interface Part {
@@ -25,6 +25,8 @@ interface ChatMsg {
   text: string;
   sentAt: string;
   color?: string;
+  /** Rol de la cuenta autora (para la insignia). */
+  role?: string;
   replyTo?: ReplyRef | null;
   parts?: Part[];
 }
@@ -79,14 +81,23 @@ export class ChatComponent implements OnInit, OnDestroy {
   @ViewChild('inputEl') inputEl?: ElementRef<HTMLInputElement>;
 
   messages = signal<ChatMsg[]>([]);
-  nickname = signal(localStorage.getItem('chat-nickname') ?? '');
+  /** Cuenta con la sesión iniciada (null = visitante: puede leer el chat pero no escribir). */
+  user = signal<SessionUser | null>(getUser());
+  /** Nombre de la cuenta; es siempre el autor de los mensajes (el servidor lo ignora si el cliente manda otro). */
+  nickname = signal(getUser()?.name ?? '');
   text = '';
   connected = signal(false);
-  nickSaved = signal(!!localStorage.getItem('chat-nickname'));
-  editingNick = signal(false);
   replyingTo = signal<ChatMsg | null>(null);
-  /** Hay sesión de admin (se inicia en /mod): muestra el botón de borrar. El permiso real lo valida el servidor con el JWT. */
-  canModerate = signal(!!getToken());
+  /** Muestra el botón de borrar. Solo es interfaz: el permiso real lo valida el servidor con el JWT. */
+  canModerate = signal(isStaff(getUser()));
+
+  // Tarjeta de entrar / crear cuenta
+  authOpen = signal(false);
+  authMode = signal<'login' | 'register'>('login');
+  authUser = '';
+  authPass = '';
+  authError = signal('');
+  authBusy = signal(false);
   emojiOpen = signal(false);
   emojiFilter = signal('');
   readonly emojis = EMOJIS;
@@ -122,13 +133,18 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.startHub();
+  }
+
+  /** Abre la conexión del chat con el token actual (el servidor lo usa para saber quién escribe). */
+  private startHub(): void {
     this.hub = new signalR.HubConnectionBuilder()
-      .withUrl(`${environment.apiUrl}/hubs/chat`)
+      .withUrl(`${environment.apiUrl}/hubs/chat`, { accessTokenFactory: () => getToken() ?? '' })
       .withAutomaticReconnect()
       .build();
 
-    this.hub.on('ReceiveMessage', (nickname: string, text: string, sentAt: string, id?: number, replyTo?: ReplyRef | null) => {
-      this.messages.update(msgs => [...msgs, withParts({ id, nickname, text, sentAt, replyTo, color: nickColor(nickname) })]);
+    this.hub.on('ReceiveMessage', (nickname: string, text: string, sentAt: string, id?: number, replyTo?: ReplyRef | null, role?: string) => {
+      this.messages.update(msgs => [...msgs, withParts({ id, nickname, text, sentAt, replyTo, role, color: nickColor(nickname) })]);
       setTimeout(() => this.scrollToBottom(), 50);
     });
 
@@ -148,17 +164,55 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  saveNickname(): void {
-    const n = this.nickname().trim();
-    if (!n) return;
-    localStorage.setItem('chat-nickname', n);
-    this.nickSaved.set(true);
-    this.editingNick.set(false);
+  openAuth(mode: 'login' | 'register' = 'login'): void {
+    this.authMode.set(mode);
+    this.authError.set('');
+    this.authPass = '';
+    this.authOpen.set(true);
+  }
+
+  closeAuth(): void {
+    this.authOpen.set(false);
+    this.authPass = '';
+  }
+
+  async submitAuth(): Promise<void> {
+    if (this.authBusy() || !this.authUser.trim() || !this.authPass) return;
+    this.authBusy.set(true);
+    this.authError.set('');
+    const error = await authenticate(environment.apiUrl, this.authMode(), this.authUser, this.authPass);
+    this.authBusy.set(false);
+    if (error) {
+      this.authError.set(error);
+      return;
+    }
+    this.applySession();
+    this.closeAuth();
+    this.authUser = '';
+  }
+
+  logout(): void {
+    logout();
+    this.applySession();
+  }
+
+  /** Refleja la sesión actual en la interfaz y reconecta el chat con el token nuevo (o sin él). */
+  private applySession(): void {
+    const u = getUser();
+    this.user.set(u);
+    this.nickname.set(u?.name ?? '');
+    this.canModerate.set(isStaff(u));
+    this.replyingTo.set(null);
+    this.connected.set(false);
+    this.messages.set([]);
+    const old = this.hub;
+    old.stop().finally(() => this.startHub());
   }
 
   async send(): Promise<void> {
     const t = this.text.trim();
     const n = this.nickname().trim();
+    if (!this.user()) { this.openAuth(); return; }
     if (!t || !n || !this.connected()) return;
     const reply = this.replyingTo();
     this.text = '';
@@ -167,7 +221,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     else await this.hub.invoke('SendMessage', n, t);
   }
 
-  /** ¿Es una respuesta a un mensaje mío? (mismo nick; no hay cuentas, así que es lo mejor que se puede saber) */
+  /** ¿Es una respuesta a un mensaje mío? (mismo nombre de cuenta) */
   isReplyToMe(msg: ChatMsg): boolean {
     const me = this.nickname().trim().toLowerCase();
     return !!me && !!msg.replyTo && msg.replyTo.nickname.trim().toLowerCase() === me
